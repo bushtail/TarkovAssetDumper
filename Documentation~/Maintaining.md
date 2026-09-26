@@ -9,6 +9,7 @@ Use the root package identifier `ca.bushtail.tarkov-asset-bundle-dumper` consist
 ## Before a commit
 
 1. Run `Tools~/Validate-Package.ps1` from PowerShell.
+   Pass `-SdkRoot 'F:\path\to\SDK'` when preparing an SDK install to check package GUIDs against its `Assets` metadata as well.
 2. Check SDK compilation after changes to code, the DLL, dependencies, or the assembly definition.
 3. Exercise the affected export/build behavior. A settings/UI-only edit needs a correspondingly focused check.
 4. Preserve the existing GUIDs in `.meta` files. Move assets together with their metadata.

@@ -3,7 +3,7 @@
 Unity editor tools for exporting AssetBundles into an existing compatible Tarkov/WTT SDK.
 
 **Package:** `ca.bushtail.tarkov-asset-bundle-dumper`  
-**Version:** `1.0.0`  
+**Version:** `1.0.1`\
 **Tested editor:** Unity `2022.3.43f1` on Windows
 
 Yeah, this was written by AI. Only difference is, I test my shit.
@@ -39,10 +39,10 @@ That is the revision used by the inspected development SDK. Unity 2022.3 support
 
 For development or a downloaded repository, choose **Package Manager → + → Add package from disk**, then select this repository's root `package.json`.
 
-To install version `1.0.0`, use **Add package from git URL**:
+To install version `1.0.1`, use **Add package from git URL**:
 
 ```text
-https://github.com/bushtail/TarkovAssetDumper.git#v1.0.0
+https://github.com/bushtail/TarkovAssetDumper.git#v1.0.1
 ```
 
 To follow development on the main branch, use `https://github.com/bushtail/TarkovAssetDumper.git#main` instead. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
@@ -57,7 +57,7 @@ Merge these entries into the SDK's existing `Packages/manifest.json` → `depend
 
 ```json
 "com.bmpq.assetbundlebrowser-imposter": "https://github.com/bmpq/AssetBundles-Browser-Imposter.git#455ac661999cc199f28eb5b1296b313c1bcd10ee",
-"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.0.0"
+"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.0.1"
 ```
 
 Retain the project's other entries. This is a JSON fragment for that object, not a complete project manifest.
@@ -95,6 +95,12 @@ Run the package checks from the repository root:
 
 ```powershell
 & './Tools~/Validate-Package.ps1'
+```
+
+To also check for GUID collisions with a development SDK's `Assets` folder:
+
+```powershell
+& './Tools~/Validate-Package.ps1' -SdkRoot 'F:\path\to\SDK'
 ```
 
 The GitHub workflow runs the same metadata/content checks on pushes and pull requests. Unity compilation, extraction, and game behavior require separate validation.

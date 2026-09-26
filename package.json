@@ -1,6 +1,6 @@
 {
   "name": "ca.bushtail.tarkov-asset-bundle-dumper",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "Tarkov Asset Dumper",
   "description": "Editor tools for exporting AssetBundles into a compatible (WTT) T*rkov SDK",
   "unity": "2022.3",

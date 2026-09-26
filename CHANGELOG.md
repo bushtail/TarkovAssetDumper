@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Give the package's Editor folder its own GUID to prevent a conflict with the SDK's Assets/Editor folder.
+- Add optional SDK asset GUID collision checks to the package validator.
+
 ## 1.0.0
 
 Initial package prepared for distribution.

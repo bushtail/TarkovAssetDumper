@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$PackageRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$PackageRoot = (Split-Path -Parent $PSScriptRoot),
+    [string]$SdkRoot
 )
 
 Set-StrictMode -Version Latest
@@ -70,6 +71,18 @@ try {
         if (Test-Path -LiteralPath $target -PathType Container) {
             Assert-Package ($text -match '(?m)^folderAsset: yes\s*$') "Folder metadata has no folder marker: $($meta.FullName)"
         }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($SdkRoot)) {
+        $sdkAssets = Join-Path (Resolve-Path -LiteralPath $SdkRoot).Path 'Assets'
+        Assert-Package (Test-Path -LiteralPath $sdkAssets -PathType Container) 'SDK root must contain an Assets directory.'
+        foreach ($sdkMeta in Get-ChildItem -LiteralPath $sdkAssets -Recurse -Filter '*.meta' -File) {
+            $sdkGuidMatch = [regex]::Match((Get-Content -LiteralPath $sdkMeta.FullName -Raw), '(?m)^guid: ([0-9a-fA-F]{32})\s*$')
+            if (-not $sdkGuidMatch.Success) { continue }
+            $sdkGuid = $sdkGuidMatch.Groups[1].Value.ToLowerInvariant()
+            Assert-Package (-not $guidOwners.ContainsKey($sdkGuid)) "Package GUID $sdkGuid conflicts with SDK asset metadata: $($sdkMeta.FullName)"
+        }
+        Write-Output 'SDK asset GUID collision check passed.'
     }
 
     $dependencyRoot = Join-Path $editor 'bushtail/Dependencies'
