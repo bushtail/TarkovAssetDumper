@@ -39,13 +39,13 @@ That is the revision used by the inspected development SDK. Unity 2022.3 support
 
 For development or a downloaded repository, choose **Package Manager → + → Add package from disk**, then select this repository's root `package.json`.
 
-After the repository and tag have been published, use **Add package from git URL**:
+To install version `1.0.0`, use **Add package from git URL**:
 
 ```text
-https://github.com/YOUR_USERNAME/TarkovAssetDumper.git#v1.0.0
+https://github.com/bushtail/TarkovAssetDumper.git#v1.0.0
 ```
 
-Replace `YOUR_USERNAME` with the repository owner. The `v1.0.0` tag must exist. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
+To follow development on the main branch, use `https://github.com/bushtail/TarkovAssetDumper.git#main` instead. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
 
 If the SDK currently has a manually copied dumper, remove those duplicate dumper scripts before installing the package. Keep the SDK's unrelated editor tools and dependencies. Two copies defining `Editor.bushtail.AssetBundleDumper` can conflict.
 
@@ -57,7 +57,7 @@ Merge these entries into the SDK's existing `Packages/manifest.json` → `depend
 
 ```json
 "com.bmpq.assetbundlebrowser-imposter": "https://github.com/bmpq/AssetBundles-Browser-Imposter.git#455ac661999cc199f28eb5b1296b313c1bcd10ee",
-"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/YOUR_USERNAME/TarkovAssetDumper.git#v1.0.0"
+"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.0.0"
 ```
 
 Retain the project's other entries. This is a JSON fragment for that object, not a complete project manifest.

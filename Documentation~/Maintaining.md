@@ -30,11 +30,11 @@ The package validator checks metadata and distribution contents. The GitHub work
 
 Keep published tags fixed. Publish a new version for a fix. The impostor Git dependency belongs in the consuming SDK's project manifest, while this package declares its registry dependencies in `package.json`.
 
-## First publication
+## Repository and published versions
 
-Create the GitHub repository, then configure its actual URL as the local repository's `origin`. Review and commit the package files before pushing. Replace `YOUR_USERNAME` in the README's public install examples with the owner after the hosting location is known.
+The repository is hosted at `https://github.com/bushtail/TarkovAssetDumper`; its Git remote is `https://github.com/bushtail/TarkovAssetDumper.git`. Review and commit package changes before pushing to `main`.
 
-The current release version is `1.0.0`; create that tag only after reviewing the first committed package. The package can be loaded locally before any GitHub repository or tag exists.
+The initial version is `1.0.0`, installed through the `v1.0.0` tag. Keep that tag fixed and create a matching new tag for each later release. Users can install `#main` to follow development or load a local checkout from disk.
 
 ## Dependency updates
 
