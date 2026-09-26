@@ -6,6 +6,8 @@ Unity editor tools for exporting AssetBundles into an existing compatible Tarkov
 **Version:** `1.0.0`  
 **Tested editor:** Unity `2022.3.43f1` on Windows
 
+Yeah, this was written by AI. Only difference is, I test my shit.
+
 The dumper extracts serialized assets with AssetRipper, matches scripts and shaders to the SDK, trims referenced dependencies, sorts them into Unity type folders, and prepares original shared references for an impostor-aware build.
 
 ## Requirements
