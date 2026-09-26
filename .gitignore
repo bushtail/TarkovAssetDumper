@@ -1,0 +1,42 @@
+# Generated Unity projects and caches
+Library/
+Temp/
+Logs/
+Assets/
+ProjectSettings/
+Packages/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# Local validation and build output
+.validation/
+.build/
+output/
+bin/
+obj/
+Obj/
+*.log
+*.pdb
+*.bundle
+*.unitypackage
+*.resS
+*.resource
+
+# Generated C# projects and editor state
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+.vs/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.env
+.env.*
+
+# Unity metadata and the bundled DLL belong in Git.

@@ -1,0 +1,20 @@
+{
+  "name": "bushtail.AssetBundleDumper.Editor",
+  "rootNamespace": "Editor.bushtail",
+  "references": [
+    "Unity.AssetBundleBrowser.Editor",
+    "Unity.ScriptableBuildPipeline",
+    "Unity.ScriptableBuildPipeline.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
