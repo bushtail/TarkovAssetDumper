@@ -4,7 +4,8 @@
   "references": [
     "Unity.AssetBundleBrowser.Editor",
     "Unity.ScriptableBuildPipeline",
-    "Unity.ScriptableBuildPipeline.Editor"
+    "Unity.ScriptableBuildPipeline.Editor",
+    "Unity.Formats.Fbx.Editor"
   ],
   "includePlatforms": [
     "Editor"

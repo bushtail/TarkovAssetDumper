@@ -3,7 +3,7 @@
 Unity editor tools for exporting AssetBundles into an existing compatible Tarkov/WTT SDK.
 
 **Package:** `ca.bushtail.tarkov-asset-bundle-dumper`  
-**Version:** `1.0.1`\
+**Version:** `1.1.0`\
 **Tested editor:** Unity `2022.3.43f1` on Windows
 
 Yeah, this was written by AI. Only difference is, I test my shit.
@@ -20,6 +20,7 @@ The dumper extracts serialized assets with AssetRipper, matches scripts and shad
 | AssetBundleBrowser impostor package | Provides original-reference-aware building and canonical asset metadata. |
 | Scriptable Build Pipeline `2.1.5` | Declared in this package's manifest. |
 | Newtonsoft.Json `3.2.1` | Declared in this package's manifest. |
+| Unity FBX Exporter `4.2.1` | Declared in this package's manifest; exports editable weapon models and clips. |
 
 The package contains the dumper's editor code and its isolated AssetsTools.NET DLL. It does not include the SDK, AssetRipper, game assets, or extracted/built bundles.
 
@@ -39,10 +40,10 @@ That is the revision used by the inspected development SDK. Unity 2022.3 support
 
 For development or a downloaded repository, choose **Package Manager → + → Add package from disk**, then select this repository's root `package.json`.
 
-To install version `1.0.1`, use **Add package from git URL**:
+To install version `1.1.0`, use **Add package from git URL**:
 
 ```text
-https://github.com/bushtail/TarkovAssetDumper.git#v1.0.1
+https://github.com/bushtail/TarkovAssetDumper.git#v1.1.0
 ```
 
 To follow development on the main branch, use `https://github.com/bushtail/TarkovAssetDumper.git#main` instead. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
@@ -57,7 +58,7 @@ Merge these entries into the SDK's existing `Packages/manifest.json` → `depend
 
 ```json
 "com.bmpq.assetbundlebrowser-imposter": "https://github.com/bmpq/AssetBundles-Browser-Imposter.git#455ac661999cc199f28eb5b1296b313c1bcd10ee",
-"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.0.1"
+"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.1.0"
 ```
 
 Retain the project's other entries. This is a JSON fragment for that object, not a complete project manifest.
@@ -71,9 +72,12 @@ Retain the project's other entries. This is a JSON fragment for that object, not
 5. Select the AssetRipper executable.
 6. Enable **Assign one AssetBundle label to exported assets** to group editable source assets and retained dependencies.
 7. Extract and review the report. Successful exports appear under `Assets/BundleDumps`.
-8. Review/edit the assets, then build using the SDK's impostor-aware build process.
+8. Weapon containers also produce an editable FBX under `Assets/BundleDumperFBX/<dump name>`.
+9. Review/edit the assets, then build using the SDK's impostor-aware build process.
 
 The checkbox assigns labels. It does not build a bundle, generate a mod manifest, or install a mod.
+
+The FBX is an editing copy outside the bundle source tree. Changes to it do not change the dumped prefab or bundle until you deliberately import the revised model back into your mod workflow.
 
 ## Dependency rules
 

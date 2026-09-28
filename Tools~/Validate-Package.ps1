@@ -21,7 +21,7 @@ try {
     foreach ($dependency in $manifest.dependencies.PSObject.Properties) {
         Assert-Package ($dependency.Value -match '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') "Dependency '$($dependency.Name)' must use a registry version; install Git prerequisites in the project manifest."
     }
-    foreach ($dependency in @('com.unity.scriptablebuildpipeline', 'com.unity.nuget.newtonsoft-json')) {
+    foreach ($dependency in @('com.unity.scriptablebuildpipeline', 'com.unity.nuget.newtonsoft-json', 'com.unity.formats.fbx')) {
         Assert-Package ($dependency -in @($manifest.dependencies.PSObject.Properties.Name)) "Missing required dependency: $dependency"
     }
 
@@ -40,7 +40,7 @@ try {
     Assert-Package ($assembly.rootNamespace -eq 'Editor.bushtail') 'Assembly root namespace does not match the dumper.'
     Assert-Package (@($assembly.includePlatforms).Count -eq 1 -and $assembly.includePlatforms[0] -eq 'Editor') 'Dumper assembly must be Editor-only.'
     Assert-Package (-not $assembly.overrideReferences -and -not $assembly.noEngineReferences) 'Dumper requires engine and automatic plugin references.'
-    foreach ($reference in @('Unity.AssetBundleBrowser.Editor', 'Unity.ScriptableBuildPipeline', 'Unity.ScriptableBuildPipeline.Editor')) {
+    foreach ($reference in @('Unity.AssetBundleBrowser.Editor', 'Unity.ScriptableBuildPipeline', 'Unity.ScriptableBuildPipeline.Editor', 'Unity.Formats.Fbx.Editor')) {
         Assert-Package ($reference -in @($assembly.references)) "Missing assembly reference: $reference"
     }
 
@@ -54,7 +54,7 @@ try {
         }
         Assert-Package (Test-Path -LiteralPath ($item.FullName + '.meta') -PathType Leaf) "Missing Unity metadata: $($item.FullName).meta"
     }
-    Assert-Package (@($items | Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.cs' }).Count -eq 9) 'Expected the nine dumper scripts.'
+    Assert-Package (@($items | Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.cs' }).Count -eq 10) 'Expected the ten dumper scripts.'
 
     $metaFiles = @(Get-ChildItem -LiteralPath $editor -Recurse -Filter '*.meta' -File) + @(Get-ChildItem -LiteralPath $root -Filter '*.meta' -File)
     $guidOwners = @{}
@@ -107,7 +107,7 @@ try {
         Assert-Package ($file -notmatch '(?i)\.(?:prefab|unity|asset|mat|shader|cubemap|physicmaterial|fbx|obj|wav|ogg|bundle|unitypackage|resS|resource|csproj|sln|pdb|log)$') "Unexpected game/build payload in distribution: $file"
     }
 
-    Write-Output "PACKAGE_VALIDATION_PASSED: $($manifest.name) $($manifest.version); 9 editor scripts; $($guidOwners.Count) unique GUIDs; $($files.Count) distribution files."
+    Write-Output "PACKAGE_VALIDATION_PASSED: $($manifest.name) $($manifest.version); 10 editor scripts; $($guidOwners.Count) unique GUIDs; $($files.Count) distribution files."
     Write-Output 'Package metadata/content checks passed. Validate compilation and affected extraction/build behavior in a compatible SDK separately.'
     exit 0
 } catch {

@@ -572,6 +572,8 @@ namespace Editor.bushtail
             log.Add("Removed " + AssetBundleExportFolders.PruneImportedEmptyFolders(itemRoot) + " empty leftover dump folders.");
             Validate(itemRoot);
             AssetBundleDumpBuilder.WriteSettings(itemRoot, importedBundles, sortedDependencyRoots, sortedDependencyGuids, originalSources);
+            progress?.Invoke("Exporting editable weapon FBX");
+            AssetBundleWeaponFbx.ExportFromDump(itemRoot, log);
             log.Add("Validated imported scripts and persistent object references.");
             await File.WriteAllLinesAsync(Path.Combine(run, "remap-report.txt"), log);
             return destinations[0];

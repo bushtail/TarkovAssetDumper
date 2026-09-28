@@ -93,6 +93,7 @@ Batch inputs remain separate exports. A failed input is logged and the remaining
 8. Prune unneeded dependency files when the relevant options permit it; assign labels.
 9. Configure original shared identities and reconstruct supported missing animator masks.
 10. Sort dependency assets by their Unity main type, prune empty leftovers, validate again, and save build settings.
+11. For a weapon container, export its referenced model prefab with the container's original Animator Controller clips to a separate editable FBX.
 
 Original inputs are read; modified copies and extractor output live under `Library/BundleDumper/<run id>`. The isolated extractor executable is under `Library/BundleDumper/Tool`. It runs headlessly through a loopback HTTP service so the tool can apply extraction settings and collect a run-specific log.
 
@@ -169,6 +170,14 @@ Existing SDK shaders are matched by name; labeled previous dumps are excluded as
 Original controllers can store bone masks inline, while exported layers have null AvatarMask references. Losing those filters can cause catch, hammer, or malfunction states to affect unrelated weapon/hand bones.
 
 `AssetBundleAnimatorMaskRepair.Restore` reconstructs supported missing masks from original controller and avatar data into `AvatarMask`. Existing masks are preserved. Automatic repair supports the inspected full humanoid body-mask pattern and binary transform weights; restricted body masks, fractional weights, mismatched layers, and ambiguous sources can fail. Review omitted bone hashes reported in the log.
+
+### Editable weapon FBX
+
+A weapon container's `_weaponObject` points to the actual model prefab; its `_originalAnimatorController` supplies the clips. The model prefab's Animator can have no controller assigned. After a successful dump, the dumper loads a temporary copy of that model, attaches an in-memory override of the referenced controller, places the copy's root at `(0,0,0)`, and uses Unity FBX Exporter to write the mesh, rig hierarchy, and controller clips to `Assets/BundleDumperFBX/<dump name>/<model name>.fbx`. The override avoids an FBX Exporter failure when a ripped controller's first layer has no default state. The source prefab and controller are not modified. FBX output is outside the labeled dump and does not enter the bundle build.
+
+Select an existing labeled dump root and use **Assets → bushtail → Export Editable Weapon FBX** to regenerate its editing copy. Review the `FBX:` or `FBX FAILED:` report line. The export starts from the actual prefab hierarchy and normalizes its root in Unity; Blender's FBX importer can display roots differently, so inspect the armature before deleting any bone. AvatarMasks and game-specific Animator Controller logic remain Unity assets; an FBX carries the model and animation takes, not the game's controller/state machine. Edits to the FBX must be imported back into the mod assets deliberately.
+
+Unity FBX Exporter can warn about animation curves on game-specific MonoBehaviour fields because FBX has no mapping for those properties. Transform and supported mesh animation curves remain available for model editing; game component behavior still depends on the original Unity assets.
 
 ### Audio
 
@@ -264,6 +273,7 @@ The snippet belongs inside an asynchronous editor method with initialized paths/
 | `AssetBundleDumpBuilder.FindDumpRoot` | Find a recorded dump from a selection. |
 | `AssetBundleExportFolders.PruneImportedEmptyFolders` | Prune imported empty children while preserving the root. |
 | `AssetBundleAnimatorMaskRepair.Restore` | Reconstruct supported original masks. |
+| `AssetBundleWeaponFbx.ExportFromDump` | Export a container's model and controller clips to an FBX editing copy. |
 | `AssetBundleAudioRepair.RepairFile` | Repair the supported unfinished WAV header. |
 
 ## Troubleshooting
@@ -280,6 +290,7 @@ The snippet belongs inside an asynchronous editor method with initialized paths/
 | Empty Shader/PhysicMaterial folders | Normal extraction, sorting, or diagnostic building prunes metadata-only leftovers. |
 | Original identity preparation fails | Required originals, compatible providers, unique native identity, and multi-subasset limitations. |
 | Missing animator mask / wrong empty pose | Original controllers, bone tables, mask restrictions, cache/events, and runtime layers. |
+| FBX missing or lacks clips | `FBX FAILED:` report line, imported weapon model reference, original controller, and Unity FBX Exporter package. |
 | Long or incorrect firing audio | Playback mode, automatic loops/tails, cached bank durations, variants, and server/controller timing. |
 | Lost build settings | Folder metadata GUID, Library cache, recorded source paths; re-extract if lost. |
 | Built weapon fails in game | Actual bundle addresses/CAB, loader dependency keys, item registration, compatible parts, and server/client logs. |
