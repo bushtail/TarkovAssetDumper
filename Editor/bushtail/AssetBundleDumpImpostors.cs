@@ -79,11 +79,27 @@ namespace Editor.bushtail
             }).ToArray();
             
             var exported = AssetDatabase.GetAllAssetPaths().Where(p => p.StartsWith(root + "/", StringComparison.Ordinal)).ToArray();
-            var names = AssetDatabase.GetDependencies(exported, true).Select(AssetDatabase.LoadMainAssetAtPath)
+            var dependencies = AssetDatabase.GetDependencies(exported, true);
+            var names = dependencies.Select(AssetDatabase.LoadMainAssetAtPath)
                 .Select(RequiredType).Where(t => t != 0).Select(RequiredBundle).Distinct().ToArray();
             var originals = names.Select(n => OriginalPath(n, bundles)).ToArray();
+            // Repaired SDK hand clips and Standart blend options retain native identities.
+            // Their original source bundles must be available to reference verification.
+            var repairedSources = dependencies.Where(path => !path.StartsWith(root + "/", StringComparison.Ordinal)
+                    && AssetUserDataHelper.GetData<long>(path, ImposterBuilder.CanonicalPathIDKey) != 0)
+                .Where(path =>
+                {
+                    var asset = AssetDatabase.LoadMainAssetAtPath(path);
+                    return asset is AnimationClip || asset && asset.GetType().Name == "DistanceBlendOptions";
+                })
+                .Select(path => AssetImporter.GetAtPath(path))
+                .Where(importer => importer && !string.IsNullOrEmpty(importer.assetBundleName))
+                .Select(importer => importer.assetBundleName + (string.IsNullOrEmpty(importer.assetBundleVariant) ? "" : "." + importer.assetBundleVariant))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            var originalRepaired = repairedSources.Select(name => OriginalPath(name, bundles)).ToArray();
+            foreach (var name in repairedSources) { log?.Add("REPAIRED SDK SOURCE: " + name); }
             Apply(new[] { root }, bundles, "", log ?? new List<string>());
-            return sources.Concat(originals).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            return sources.Concat(originals).Concat(originalRepaired).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         }
 
         private static Dictionary<string, List<(string address, string cab, long id, int type)>> ReadOriginals(IReadOnlyList<AssetBundleDependencies.BundleInfo> bundles, IEnumerable<string> names)

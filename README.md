@@ -72,14 +72,17 @@ Retain the project's other entries. This is a JSON fragment for that object, not
 4. Select the matching dependency folder, or leave it blank with a valid `SptRoot`. Select the installed AssetStudioMod CLI executable for editable source animations and recovered audio.
 5. Select the AssetRipper executable.
 6. Enable **Assign one AssetBundle label to exported assets** to group editable source assets and retained dependencies.
-7. Extract and review the report. Successful exports appear under `Assets/BundleDumps`.
+7. Click **Extract**. The name popup asks for a distinct new item name, then exports to `Assets/BundleDumps/<new name>`. Choose **Dump original names** only when you want a normal copy of the source. Review the report.
 8. Weapon containers also produce an editable FBX under `Assets/BundleDumperFBX/<dump name>`. With the patched CLI, it contains original animation curves.
 9. **Build and verify after extraction** builds the unedited rip under `AssetBundles/Dumps/<dump name>` by default. Review the report and test the weapon in game.
-10. After editing the FBX in Blender or Unity, select it in the Project window and choose **Assets → bushtail → Apply Edited Weapon FBX and Build**. Compatible mesh and transform animation edits are copied into the original assets, then the bundle is rebuilt.
+10. The **New Item Guide** opens after a named export. It points to the FBX, prefab, built bundle key, CAB IDs, and each remaining manual task. You can reopen it with **Assets → bushtail → New Item Guide** from a dump folder.
+11. After editing the FBX in Blender or Unity, use **Apply edited FBX and rebuild** in the guide, or select the FBX and choose **Assets → bushtail → Apply Edited Weapon FBX and Build**. Compatible mesh and transform animation edits are copied into the original assets, then the bundle is rebuilt.
 
 The single-label checkbox groups build assets under one label. It does not generate a mod manifest or install a mod.
 
 The FBX is an editing copy outside the bundle source tree. The apply command keeps original asset GUIDs, controller links, game components, and animation events. It skips meshes with incompatible bone order and clips whose transform paths do not fit the original skeleton; review its log before using the rebuilt bundle. It backs up affected source assets under `Library/BundleDumper/EditedFbxBackups`.
+
+The weapon workflow also fills missing SoundBank `BlendOptions` from the SDK's `Standart` asset and restores shared left-hand and gesture motions from matching SDK clips. It uses the original SDK GUIDs when available, otherwise a unique clip match. Ambiguous matches are reported for manual review. The guide prompts for Blender edits, Unity pose/rig/audio inspection, mod bundle and item registration, and in-game testing. Naming changes the new dump folder and bundle key; internal bone, clip, and asset address names remain available for matching.
 
 ## Dependency rules
 

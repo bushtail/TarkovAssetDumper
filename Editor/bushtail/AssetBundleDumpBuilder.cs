@@ -135,9 +135,9 @@ namespace Editor.bushtail
         }
 
         public static void WriteSettings(string root, IReadOnlyList<AssetBundleDependencies.BundleInfo> bundles, 
-            string[] dependencyRoots, string[]? dependencyAssetGuids = null, string[]? originalSources = null)
+            string[] dependencyRoots, string[]? dependencyAssetGuids = null, string[]? originalSources = null, string? bundleName = null)
         {
-            var settings = new Settings { BundleName = bundles[0].Name, Sources = originalSources ?? bundles.Select(b => b.Path).ToArray(), DependencyRoots = dependencyRoots, DependencyAssetGuids = dependencyAssetGuids ?? Array.Empty<string>() };
+            var settings = new Settings { BundleName = bundleName ?? bundles[0].Name, Sources = originalSources ?? bundles.Select(b => b.Path).ToArray(), DependencyRoots = dependencyRoots, DependencyAssetGuids = dependencyAssetGuids ?? Array.Empty<string>() };
             
             if (!settings.BundleName.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
             {

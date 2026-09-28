@@ -74,7 +74,7 @@ Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
 | Use original dependency textures through impostors | Keep suitable ordinary dependency Texture2D assets as references to originals. |
 | Use fallback for unresolved shaders | Use the selected SDK fallback for unresolved material shaders where preparation permits it. |
 | Ignore dependencies | Extract the selected source without the dependency walk/filter or extraction-time impostor preparation. |
-| Extract | Run the current queue sequentially. Each successful input has a separate output folder. |
+| Extract | Ask for a distinct display name and bundle key for each new item, then run the queue sequentially. **Dump original names** keeps the source naming. |
 | Clear Log | Clear the displayed report when extraction is idle. |
 
 The single-label option disables per-prefab splitting and optional texture impostors. Cubemaps, shaders, and physics materials keep their original groups during normal extraction.
@@ -91,12 +91,12 @@ Batch inputs remain separate exports. A failed input is logged and the remaining
 4. Repair the supported unfinished WAV-header pattern.
 5. Match exported scripts/shaders to SDK assets, remap references, and assign fresh exported GUIDs.
 6. Remove generated script output from the imported payload and prune empty staging folders.
-7. Import into `Assets/BundleDumps/<item name>` and validate persistent references.
+7. Import into `Assets/BundleDumps/<new item name>` and validate persistent references. The name is entered before extraction; internal asset, bone, clip, and original address names are preserved.
 8. Prune unneeded dependency files when the relevant options permit it; assign labels.
 9. Configure original shared identities and reconstruct supported missing animator masks.
-10. Sort dependency assets by their Unity main type, prune empty leftovers, validate again, and save build settings.
+10. Sort dependency assets by their Unity main type, restore missing SoundBank blend options and shared SDK hand/gesture motions, prune empty leftovers, validate again, and save build settings.
 11. For a weapon container, export its referenced model to a separate editable FBX. When AssetStudioMod CLI is configured, use its original Animator and AnimationClip export and recover matching audio from the selected bundles. Fall back to Unity FBX Exporter if the external output has no usable curves.
-12. By default, build and verify the unedited dump under `AssetBundles/Dumps/<dump name>`.
+12. By default, build and verify the unedited dump under `AssetBundles/Dumps/<dump name>`. A named new-item export then opens the Unity guide, even if assembly reload occurred.
 
 Original inputs are read; modified copies and extractor output live under `Library/BundleDumper/<run id>`. The isolated extractor executable is under `Library/BundleDumper/Tool`. It runs headlessly through a loopback HTTP service so the tool can apply extraction settings and collect a run-specific log.
 
@@ -173,6 +173,14 @@ Existing SDK shaders are matched by name; labeled previous dumps are excluded as
 Original controllers can store bone masks inline, while exported layers have null AvatarMask references. Losing those filters can cause catch, hammer, or malfunction states to affect unrelated weapon/hand bones.
 
 `AssetBundleAnimatorMaskRepair.Restore` reconstructs supported missing masks from original controller and avatar data into `AvatarMask`. Existing masks are preserved. Automatic repair supports the inspected full humanoid body-mask pattern and binary transform weights; restricted body masks, fractional weights, mismatched layers, and ambiguous sources can fail. Review omitted bone hashes reported in the log.
+
+### New item guide and shared weapon repairs
+
+**Extract** opens a name popup before it writes files. Enter a distinct display name for each selected bundle. The popup derives a lowercase, underscore-separated bundle key and checks for an existing dump folder, output folder, or bundle label. A named dump retains the source assets' original addresses, bone names, and animation clip names; only its new folder and primary bundle label/key change. **Dump original names** runs the ordinary export and does not open the new-item guide.
+
+After a successful named export, the **New Item Guide** opens. It is also available from **Assets → bushtail → New Item Guide** when an asset inside the dump is selected. It presents five manual checkpoints: edit the FBX model/animations, inspect the original Unity prefab/controller/audio/masks, register the built bundle in the mod, create the server item data, and test in game. It provides buttons to select the prefab and FBX, apply compatible FBX edits and rebuild, reveal the built file, read its CAB IDs, and copy the bundle key. Completion marks are local Editor preferences, so they are a checklist rather than proof that a weapon works in game. The selected mod folder is a reference for the manual registration step; the guide does not edit mod JSON.
+
+During extraction, `AssetBundleWeaponSharedRepair` fills a null `BlendOptions` reference on dumped `SoundBank` assets from the SDK's `Assets/Content/Audio/BlendOptions/Standart.asset`. It also replaces known shared left-hand Animator states and seven-child `GestureIndex` trees with SDK clips. It first resolves the original SDK GUIDs used by WeaponAIOTool, then tries an unambiguous matching clip name under `Assets/Content/Weapons`. It logs missing or ambiguous mappings without guessing. Files changed by this repair are backed up under `Library/BundleDumper/SharedRepairBackups`. The builder includes the referenced original SDK animation and blend-option bundles in its CAB/PathID verification. Other controller states and player-specific animations remain in the extracted controller and need a visual check.
 
 ### Editable weapon FBX
 
@@ -282,6 +290,9 @@ The snippet belongs inside an asynchronous editor method with initialized paths/
 | `AssetBundleAnimatorMaskRepair.Restore` | Reconstruct supported original masks. |
 | `AssetBundleWeaponFbx.ExportFromDump` | Export a container's model and controller clips to an FBX editing copy. |
 | `AssetBundleWeaponFbxApply.Apply` | Copy compatible edited FBX meshes and transform curves into original GUIDs, then build and verify. |
+| `AssetBundleWeaponSharedRepair.Restore` | Restore missing SoundBank blend options and shared SDK hand/gesture motions. |
+| `AssetBundleNewItemNamePrompt` | Validate a distinct item folder and bundle key before extraction. |
+| `AssetBundleNewItemGuide` | Prompt for remaining artistic, Unity, mod-data, and in-game tasks. |
 | `AssetBundleAudioRepair.RepairFile` | Repair the supported unfinished WAV header. |
 
 ## Troubleshooting

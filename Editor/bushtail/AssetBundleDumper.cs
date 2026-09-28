@@ -187,7 +187,10 @@ namespace Editor.bushtail
                 {
                     if (GUILayout.Button($"Extract {bundlePaths.Count} Selected AssetBundle(s)"))
                     {
-                        RunDump();
+                        AssetBundleNewItemNamePrompt.Open(bundlePaths.ToArray(), names =>
+                        {
+                            if (this) { RunDump(names); }
+                        });
                     }
                 }
 
@@ -341,8 +344,9 @@ namespace Editor.bushtail
             return Application.dataPath;
         }
 
-        private async void RunDump()
+        private async void RunDump(IReadOnlyDictionary<string, AssetBundleNewItemNamePrompt.NameInfo>? newItemNames)
         {
+            var guideRoots = new List<string>();
             try
             {
                 if (busy)
@@ -357,14 +361,24 @@ namespace Editor.bushtail
                 {
                     EditorApplication.LockReloadAssemblies();
                     reloadLocked = true;
+                    var technicalNames = newItemNames?.ToDictionary(entry => entry.Key, entry => entry.Value.Slug, StringComparer.OrdinalIgnoreCase);
                     var results = await AssetBundleBatch.DumpAsync(bundlePaths.ToArray(), ripperPath, "Assets/BundleDumps", assignPrefabBundleNames, useFallbackShader ? fallbackShaderName : null, report, message =>
                     {
                         status = message;
                         Repaint();
-                    }, dependencyFolder, useDependencyImpostors, ignoreDependencies, singleBundleLabels, assetStudioPath, buildAfterDump);
+                    }, dependencyFolder, useDependencyImpostors, ignoreDependencies, singleBundleLabels, assetStudioPath, buildAfterDump, technicalNames);
                     var successes = results.Where(r => r.Succeeded).ToArray();
                     status = $"Finished: {successes.Length} exported and validated, {results.Count - successes.Length} failed. See the report below.";
                     Selection.objects = successes.Select(r => AssetDatabase.LoadAssetAtPath<DefaultAsset>(r.Output)).Where(a => a).Cast<Object>().ToArray();
+                    if (newItemNames != null)
+                    {
+                        foreach (var result in successes)
+                        {
+                            if (!newItemNames.TryGetValue(result.Input, out var name)) { continue; }
+                            AssetBundleNewItemGuide.SaveDisplayName(result.Output, name.DisplayName);
+                            guideRoots.Add(result.Output);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -385,6 +399,10 @@ namespace Editor.bushtail
                     {
                         busy = false;
                         Repaint();
+                        if (!Application.isBatchMode && guideRoots.Count > 0)
+                        {
+                            AssetBundleNewItemGuide.QueueOpen(guideRoots);
+                        }
                     }
                 }
             }
@@ -394,9 +412,14 @@ namespace Editor.bushtail
             }
         }
 
-        public static async Task<string> DumpAsync(string input, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencySearchFolder = null, bool useDependencyImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false, string? assetStudioExecutable = null, bool buildAfterDump = true)
+        public static async Task<string> DumpAsync(string input, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencySearchFolder = null, bool useDependencyImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false, string? assetStudioExecutable = null, bool buildAfterDump = true, string? newBundleName = null)
         {
             if (singleBundleLabels) { useDependencyImpostors = false; }
+
+            if (newBundleName != null && !Regex.IsMatch(newBundleName, "^[a-z0-9_]{1,64}$"))
+            {
+                throw new ArgumentException("A new item bundle name must be 1-64 lowercase letters, digits, or underscores.");
+            }
 
             input = NormalizeInputPath(input);
             executable = NormalizeInputPath(executable);
@@ -424,6 +447,12 @@ namespace Editor.bushtail
             }
 
             var project = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            if (newBundleName != null && (Directory.Exists(Path.Combine(project, parent, newBundleName))
+                || Directory.Exists(Path.Combine(project, "AssetBundles", "Dumps", newBundleName))
+                || AssetDatabase.GetAllAssetBundleNames().Contains(newBundleName + ".bundle", StringComparer.OrdinalIgnoreCase)))
+            {
+                throw new IOException("An item folder, output, or bundle label with this name already exists: " + newBundleName);
+            }
             var absoluteParent = Path.GetFullPath(Path.Combine(project, parent));
             if (!absoluteParent.StartsWith(Application.dataPath.Replace('/', Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && !string.Equals(absoluteParent, Application.dataPath.Replace('/', Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
             {
@@ -499,7 +528,7 @@ namespace Editor.bushtail
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             var destinations = new List<string>();
             var importedBundles = new List<AssetBundleDependencies.BundleInfo>();
-            var itemName = ItemFolderName(payloads[0], bundles[0].Path);
+            var itemName = newBundleName ?? ItemFolderName(payloads[0], bundles[0].Path);
             var itemRoot = AssetDatabase.GenerateUniqueAssetPath(parent + "/" + itemName);
             var dependencyRoot = "";
             AssetDatabase.DisallowAutoRefresh();
@@ -557,7 +586,7 @@ namespace Editor.bushtail
             {
                 PruneUnreferencedDependencies(itemRoot, destinations.Skip(1).ToArray(), log);
             }
-            var sharedName = bundles[0].Name;
+            var sharedName = newBundleName ?? bundles[0].Name;
             if (sharedName.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
             {
                 sharedName = sharedName[..^".bundle".Length];
@@ -586,7 +615,7 @@ namespace Editor.bushtail
                 {
                     var isDependency = destinations.Skip(1).Any(d => path == d || path.StartsWith(d + "/", StringComparison.Ordinal));
                     var asset = AssetDatabase.LoadMainAssetAtPath(path);
-                    var name = bundles[0].Name;
+                    var name = sharedName;
                     if (name.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
                     {
                         name = name[..^".bundle".Length];
@@ -610,10 +639,13 @@ namespace Editor.bushtail
             AssetBundleAnimatorMaskRepair.Restore(itemRoot, originalSources, log);
             progress?.Invoke("Sorting referenced assets by Unity type");
             var sortedDependencyRoots = SortDependencyAssets(itemRoot, destinations.Skip(1).ToArray(), out var sortedDependencyGuids, log);
+            progress?.Invoke("Restoring shared weapon animations and audio options");
+            AssetBundleWeaponSharedRepair.Restore(itemRoot, log);
             AssetDatabase.SaveAssets();
             log.Add("Removed " + AssetBundleExportFolders.PruneImportedEmptyFolders(itemRoot) + " empty leftover dump folders.");
             Validate(itemRoot);
-            AssetBundleDumpBuilder.WriteSettings(itemRoot, importedBundles, sortedDependencyRoots, sortedDependencyGuids, originalSources);
+            AssetBundleDumpBuilder.WriteSettings(itemRoot, importedBundles, sortedDependencyRoots, sortedDependencyGuids, originalSources,
+                newBundleName == null ? null : newBundleName + ".bundle");
             progress?.Invoke("Exporting editable weapon FBX");
             AssetBundleWeaponFbx.ExportFromDump(itemRoot, log, assetStudioOutput);
             if (buildAfterDump)
