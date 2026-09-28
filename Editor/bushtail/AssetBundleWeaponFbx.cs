@@ -12,7 +12,7 @@ namespace Editor.bushtail
     /// <summary>Creates an editing copy of a ripped weapon, outside the bundle source tree.</summary>
     internal static class AssetBundleWeaponFbx
     {
-        private const string OutputRoot = "Assets/BundleDumperFBX";
+        internal const string OutputRoot = "Assets/BundleDumperFBX";
 
         [MenuItem("Assets/bushtail/Export Editable Weapon FBX", false, 2003)]
         private static void ExportSelected()
@@ -30,7 +30,7 @@ namespace Editor.bushtail
                 && AssetDatabase.GetLabels(Selection.activeObject).Contains("BundleDumperExport");
         }
 
-        internal static void ExportFromDump(string dumpRoot, List<string> log)
+        internal static void ExportFromDump(string dumpRoot, List<string> log, string? assetStudioOutput = null)
         {
             var count = 0;
             foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { dumpRoot }))
@@ -51,7 +51,10 @@ namespace Editor.bushtail
 
                 try
                 {
-                    ExportModel(dumpRoot, modelPath, controller, log);
+                    if (assetStudioOutput == null || !ImportAssetStudioModel(dumpRoot, model, assetStudioOutput, log))
+                    {
+                        ExportModel(dumpRoot, modelPath, controller, log);
+                    }
                     count++;
                 }
                 catch (Exception exception)
@@ -67,7 +70,51 @@ namespace Editor.bushtail
             }
         }
 
-        private static bool TryGetWeaponReferences(GameObject container, out GameObject model, out RuntimeAnimatorController? controller)
+        private static bool ImportAssetStudioModel(string dumpRoot, GameObject model, string output, List<string> log)
+        {
+            var source = Path.Combine(output, "Animator");
+            if (!Directory.Exists(source)) { return false; }
+            var matches = Directory.GetFiles(source, "*.fbx", SearchOption.AllDirectories)
+                .Where(path => Path.GetFileNameWithoutExtension(path).Equals(model.name, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                log.Add("FBX WARNING: Expected one AssetStudio model named " + model.name + "; found " + matches.Length + ". Using Unity export.");
+                return false;
+            }
+
+            var dumpName = dumpRoot.Substring(dumpRoot.LastIndexOf('/') + 1);
+            EnsureFolder(OutputRoot);
+            var folder = OutputRoot + "/" + dumpName;
+            EnsureFolder(folder);
+            var assetPath = folder + "/" + model.name + ".fbx";
+            var projectRoot = Path.GetDirectoryName(Application.dataPath)!;
+            var destination = Path.GetFullPath(Path.Combine(projectRoot, assetPath));
+            File.Copy(matches[0], destination, true);
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+            var imported = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            var clips = AssetDatabase.LoadAllAssetsAtPath(assetPath).OfType<AnimationClip>()
+                .Where(clip => !clip.name.StartsWith("__preview__", StringComparison.Ordinal))
+                .ToArray();
+            var animated = clips.Count(clip => AnimationUtility.GetCurveBindings(clip).Length > 0);
+            if (!imported || animated == 0 || !imported.GetComponentsInChildren<Renderer>(true).Any())
+            {
+                AssetDatabase.DeleteAsset(assetPath);
+                log.Add("FBX WARNING: AssetStudio output has no usable mesh and animation curves; using Unity export. Check " + Path.Combine(output, "Animator"));
+                return false;
+            }
+
+            var importer = AssetImporter.GetAtPath(assetPath);
+            if (importer)
+            {
+                importer.SetAssetBundleNameAndVariant("", "");
+                TagSource(importer, assetPath, dumpRoot);
+            }
+            log.Add("FBX: AssetStudio " + model.name + " -> " + assetPath + " (" + animated + " editable clips; source build assets preserved)");
+            return true;
+        }
+
+        internal static bool TryGetWeaponReferences(GameObject container, out GameObject model, out RuntimeAnimatorController? controller)
         {
             model = null!;
             controller = null;
@@ -139,6 +186,7 @@ namespace Editor.bushtail
                 if (importer)
                 {
                     importer.SetAssetBundleNameAndVariant("", "");
+                    TagSource(importer, assetPath, dumpRoot);
                 }
 
                 var importedClipCount = AssetDatabase.LoadAllAssetsAtPath(assetPath)
@@ -167,6 +215,19 @@ namespace Editor.bushtail
             if (AssetDatabase.IsValidFolder(assetPath)) { return; }
             var parent = assetPath.Substring(0, assetPath.LastIndexOf('/'));
             AssetDatabase.CreateFolder(parent, assetPath.Substring(parent.Length + 1));
+        }
+
+        private static void TagSource(AssetImporter importer, string fbxPath, string dumpRoot)
+        {
+            var guid = AssetDatabase.AssetPathToGUID(dumpRoot);
+            if (string.IsNullOrEmpty(guid)) { throw new InvalidOperationException("Source dump has no folder GUID: " + dumpRoot); }
+            const string prefix = "bushtail.source-dump-guid=";
+            var lines = importer.userData.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => !line.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+            lines.Add(prefix + guid);
+            importer.userData = string.Join("\n", lines);
+            EditorUtility.SetDirty(importer);
+            AssetDatabase.WriteImportSettingsIfDirty(fbxPath);
         }
     }
 }

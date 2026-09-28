@@ -67,7 +67,9 @@ Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
 | Remove / Clear | Remove a queue entry or clear the input queue. |
 | Dependency search folder | Locate matching source dependencies. Blank uses environment/ancestor discovery. |
 | AssetRipper executable | Locate the separately installed extractor. |
+| AssetStudioMod CLI | Optional external executable for editable Animator FBX curves and recovered source audio. The setup script installs the tested patched CLI locally. |
 | Assign one AssetBundle label to exported assets | Group eligible source assets and editable retained dependencies under the source bundle's name. |
+| Build and verify after extraction | Build the unedited dump through the original-reference-aware builder and verify its serialized references. Enabled by default. |
 | Split into per-prefab bundles | When the single-label option is off, label prefabs from their lowercase filenames. |
 | Use original dependency textures through impostors | Keep suitable ordinary dependency Texture2D assets as references to originals. |
 | Use fallback for unresolved shaders | Use the selected SDK fallback for unresolved material shaders where preparation permits it. |
@@ -93,7 +95,8 @@ Batch inputs remain separate exports. A failed input is logged and the remaining
 8. Prune unneeded dependency files when the relevant options permit it; assign labels.
 9. Configure original shared identities and reconstruct supported missing animator masks.
 10. Sort dependency assets by their Unity main type, prune empty leftovers, validate again, and save build settings.
-11. For a weapon container, export its referenced model prefab with the container's original Animator Controller clips to a separate editable FBX.
+11. For a weapon container, export its referenced model to a separate editable FBX. When AssetStudioMod CLI is configured, use its original Animator and AnimationClip export and recover matching audio from the selected bundles. Fall back to Unity FBX Exporter if the external output has no usable curves.
+12. By default, build and verify the unedited dump under `AssetBundles/Dumps/<dump name>`.
 
 Original inputs are read; modified copies and extractor output live under `Library/BundleDumper/<run id>`. The isolated extractor executable is under `Library/BundleDumper/Tool`. It runs headlessly through a loopback HTTP service so the tool can apply extraction settings and collect a run-specific log.
 
@@ -175,13 +178,17 @@ Original controllers can store bone masks inline, while exported layers have nul
 
 A weapon container's `_weaponObject` points to the actual model prefab; its `_originalAnimatorController` supplies the clips. The model prefab's Animator can have no controller assigned. After a successful dump, the dumper loads a temporary copy of that model, attaches an in-memory override of the referenced controller, places the copy's root at `(0,0,0)`, and uses Unity FBX Exporter to write the mesh, rig hierarchy, and controller clips to `Assets/BundleDumperFBX/<dump name>/<model name>.fbx`. The override avoids an FBX Exporter failure when a ripped controller's first layer has no default state. The source prefab and controller are not modified. FBX output is outside the labeled dump and does not enter the bundle build.
 
-Select an existing labeled dump root and use **Assets → bushtail → Export Editable Weapon FBX** to regenerate its editing copy. Review the `FBX:` or `FBX FAILED:` report line. The export starts from the actual prefab hierarchy and normalizes its root in Unity; Blender's FBX importer can display roots differently, so inspect the armature before deleting any bone. AvatarMasks and game-specific Animator Controller logic remain Unity assets; an FBX carries the model and animation takes, not the game's controller/state machine. Edits to the FBX must be imported back into the mod assets deliberately.
+For the stronger source export, run `Tools~/Setup-AssetStudioModCLI.ps1` from PowerShell once and select the resulting executable in the dumper window. The script downloads AssetStudioModCLI 0.19.0 and builds a pinned patch that includes AnimationClip assets in Animator mode. The published 0.19.0 CLI without this patch can produce an FBX with no animation curves. The dumper checks the imported FBX and falls back to its Unity export if the external result has no curves or renderers. The original prefab and controller remain untouched so the off-rip bundle can still build. The editing FBX is outside the labeled source tree.
+
+Select an existing labeled dump root and use **Assets → bushtail → Export Editable Weapon FBX** to regenerate a Unity editing copy. Review the `FBX:` or `FBX FAILED:` report line. Blender's FBX importer can display roots differently, so inspect the armature before deleting any bone. AvatarMasks and game-specific Animator Controller logic remain Unity assets; an FBX carries the model and animation takes, not the game's controller/state machine.
+
+After changing and reimporting the FBX, select that FBX in the Unity Project window and use **Assets → bushtail → Apply Edited Weapon FBX and Build**. The generated FBX records the source dump's folder GUID, so similarly named dumps cannot be confused. The tool matches renderers by their hierarchy paths and requires the original skin bone order. It copies readable mesh geometry into the original standalone Mesh assets, and copies transform curves from uniquely named clips when every animated path exists in the original weapon skeleton. It preserves original `.meta` GUIDs, Animator Controller references, game components, non-transform curves, and animation events. Unmatched or ambiguous parts are skipped and reported. The command backs up affected files under `Library/BundleDumper/EditedFbxBackups/<timestamp>` before applying and rebuilds through the normal verified builder. If Blender adds or removes bones, changes bone order, or renames paths, correct those differences before applying; the tool does not guess a retargeting map. The SKS validation copy applied 12 meshes and 159 clips with this matching rule.
 
 Unity FBX Exporter can warn about animation curves on game-specific MonoBehaviour fields because FBX has no mapping for those properties. Transform and supported mesh animation curves remain available for model editing; game component behavior still depends on the original Unity assets.
 
 ### Audio
 
-`AssetBundleAudioRepair` repairs one known WAV-header defect: valid sample payloads with unfinished zero RIFF/data lengths. It preserves sample bytes and importer metadata. It does not shorten sound clips, change pitch, or recalculate SoundBank cached timing.
+When AssetStudioMod CLI is configured, the dumper exports source AudioClips as WAV and replaces uniquely named AssetRipper audio before Unity import, preserving each asset's `.meta` GUID. Ambiguous names are skipped. Without the CLI, `AssetBundleAudioRepair` repairs one known WAV-header defect: valid sample payloads with unfinished zero RIFF/data lengths. Neither path shortens sound clips, changes pitch, or recalculates SoundBank cached timing.
 
 ### Firearm changes
 
@@ -274,6 +281,7 @@ The snippet belongs inside an asynchronous editor method with initialized paths/
 | `AssetBundleExportFolders.PruneImportedEmptyFolders` | Prune imported empty children while preserving the root. |
 | `AssetBundleAnimatorMaskRepair.Restore` | Reconstruct supported original masks. |
 | `AssetBundleWeaponFbx.ExportFromDump` | Export a container's model and controller clips to an FBX editing copy. |
+| `AssetBundleWeaponFbxApply.Apply` | Copy compatible edited FBX meshes and transform curves into original GUIDs, then build and verify. |
 | `AssetBundleAudioRepair.RepairFile` | Repair the supported unfinished WAV header. |
 
 ## Troubleshooting

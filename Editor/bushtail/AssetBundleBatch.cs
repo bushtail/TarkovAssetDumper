@@ -20,7 +20,7 @@ namespace Editor.bushtail
         }
 
         public static string[] Normalize(IEnumerable<string> paths) => paths.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => Path.GetFullPath(Environment.ExpandEnvironmentVariables(p.Trim().Trim('"')))).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        public static async Task<List<Result>> DumpAsync(IEnumerable<string> inputs, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencyFolder = null, bool useImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false)
+        public static async Task<List<Result>> DumpAsync(IEnumerable<string> inputs, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencyFolder = null, bool useImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false, string? assetStudioExecutable = null, bool buildAfterDump = true)
         {
             var paths = Normalize(inputs);
             if (paths.Length == 0)
@@ -41,7 +41,7 @@ namespace Editor.bushtail
                 };
                 try
                 {
-                    result.Output = await AssetBundleDumper.DumpAsync(paths[i], executable, parent, splitPrefabs, fallback, log, message => progress?.Invoke(label + ": " + message), dependencyFolder, useImpostors, ignoreDependencies, singleBundleLabels);
+                    result.Output = await AssetBundleDumper.DumpAsync(paths[i], executable, parent, splitPrefabs, fallback, log, message => progress?.Invoke(label + ": " + message), dependencyFolder, useImpostors, ignoreDependencies, singleBundleLabels, assetStudioExecutable, buildAfterDump);
                     log.Add("BATCH SUCCESS: " + label + " -> " + result.Output);
                 }
                 catch (Exception e)

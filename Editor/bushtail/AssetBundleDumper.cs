@@ -28,6 +28,8 @@ namespace Editor.bushtail
         [SerializeField]
         private string ripperPath = "";
         [SerializeField]
+        private string assetStudioPath = "";
+        [SerializeField]
         private string dependencyFolder = "";
         [SerializeField]
         private bool ignoreDependencies;
@@ -35,6 +37,8 @@ namespace Editor.bushtail
         private bool assignPrefabBundleNames;
         [SerializeField]
         private bool singleBundleLabels;
+        [SerializeField]
+        private bool buildAfterDump = true;
         [SerializeField]
         private bool useDependencyImpostors;
         [SerializeField]
@@ -102,6 +106,18 @@ namespace Editor.bushtail
                     ripperPath = sibling;
                 }
             }
+
+            if (string.IsNullOrWhiteSpace(assetStudioPath))
+            {
+                assetStudioPath = Environment.GetEnvironmentVariable("ASSETSTUDIOCLI_PATH")
+                    ?? EditorPrefs.GetString("bushtail.AssetStudioModCLIPath", "");
+                if (string.IsNullOrWhiteSpace(assetStudioPath))
+                {
+                    var installed = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "bushtail", "AssetStudioModCLI-weapon-dumper", "AssetStudioModCLI.exe");
+                    if (File.Exists(installed)) { assetStudioPath = installed; }
+                }
+            }
         }
 
         private static string EnvironmentRipperPath()
@@ -146,9 +162,12 @@ namespace Editor.bushtail
                 }
 
                 PathField("AssetRipper executable", ref ripperPath, "exe");
+                PathField("AssetStudioMod CLI", ref assetStudioPath, "exe");
                 EditorGUILayout.LabelField("Output", "Assets/BundleDumps/<item name>");
                 singleBundleLabels = EditorGUILayout.ToggleLeft(new GUIContent("Assign one AssetBundle label to exported assets",
                     "Group the selected assets and editable dependencies. Shared cubemaps, shaders and physics materials retain their original game bundle labels."), singleBundleLabels);
+                buildAfterDump = EditorGUILayout.ToggleLeft(new GUIContent("Build and verify after extraction",
+                    "Build the untouched ripped source with original references and check serialized pointers. The editable FBX stays outside the bundle."), buildAfterDump);
                 using (new EditorGUI.DisabledScope(singleBundleLabels))
                 {
                     assignPrefabBundleNames = EditorGUILayout.ToggleLeft("Split into per-prefab bundles", assignPrefabBundleNames);
@@ -342,7 +361,7 @@ namespace Editor.bushtail
                     {
                         status = message;
                         Repaint();
-                    }, dependencyFolder, useDependencyImpostors, ignoreDependencies, singleBundleLabels);
+                    }, dependencyFolder, useDependencyImpostors, ignoreDependencies, singleBundleLabels, assetStudioPath, buildAfterDump);
                     var successes = results.Where(r => r.Succeeded).ToArray();
                     status = $"Finished: {successes.Length} exported and validated, {results.Count - successes.Length} failed. See the report below.";
                     Selection.objects = successes.Select(r => AssetDatabase.LoadAssetAtPath<DefaultAsset>(r.Output)).Where(a => a).Cast<Object>().ToArray();
@@ -375,12 +394,13 @@ namespace Editor.bushtail
             }
         }
 
-        public static async Task<string> DumpAsync(string input, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencySearchFolder = null, bool useDependencyImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false)
+        public static async Task<string> DumpAsync(string input, string executable, string parent, bool splitPrefabs, string? fallback, List<string> log, Action<string>? progress = null, string? dependencySearchFolder = null, bool useDependencyImpostors = true, bool ignoreDependencies = false, bool singleBundleLabels = false, string? assetStudioExecutable = null, bool buildAfterDump = true)
         {
             if (singleBundleLabels) { useDependencyImpostors = false; }
 
             input = NormalizeInputPath(input);
             executable = NormalizeInputPath(executable);
+            assetStudioExecutable = NormalizeInputPath(assetStudioExecutable);
             dependencySearchFolder = NormalizeInputPath(dependencySearchFolder);
             
             if (string.IsNullOrWhiteSpace(executable))
@@ -391,6 +411,10 @@ namespace Editor.bushtail
             if (!File.Exists(input) || !File.Exists(executable))
             {
                 throw new FileNotFoundException("Choose an existing bundle and AssetRipper executable.");
+            }
+            if (!string.IsNullOrEmpty(assetStudioExecutable) && !File.Exists(assetStudioExecutable))
+            {
+                throw new FileNotFoundException("AssetStudioModCLI executable was not found.", assetStudioExecutable);
             }
 
             parent = parent.Replace('\\', '/').TrimEnd('/');
@@ -427,6 +451,20 @@ namespace Editor.bushtail
             log.AddRange(dependencyLog);
             progress?.Invoke("Extracting " + bundles.Count + " bundle(s) with AssetRipper");
             await Extract(inputs, executable, run);
+            string? assetStudioOutput = null;
+            if (!string.IsNullOrEmpty(assetStudioExecutable))
+            {
+                EditorPrefs.SetString("bushtail.AssetStudioModCLIPath", assetStudioExecutable);
+                try
+                {
+                    progress?.Invoke("Exporting source animations and audio with AssetStudioModCLI");
+                    assetStudioOutput = await AssetStudioModBridge.Export(assetStudioExecutable, inputs, run, log);
+                }
+                catch (Exception ex)
+                {
+                    log.Add("ASSETSTUDIO FAILED: " + ex);
+                }
+            }
             var assets = Directory.GetDirectories(FileSystemPath(run), "Assets", SearchOption.AllDirectories).SingleOrDefault(p => !p.Contains(Path.DirectorySeparatorChar + "Assets" + Path.DirectorySeparatorChar));
             if (assets == null)
             {
@@ -435,6 +473,10 @@ namespace Editor.bushtail
 
             progress?.Invoke("Compacting bundle staging folders");
             var payloads = StageBundleFolders(assets, bundles, run);
+            if (assetStudioOutput != null)
+            {
+                AssetStudioModBridge.ReplaceAudio(Path.Combine(run, "Payloads"), Path.Combine(assetStudioOutput, "Audio"), log);
+            }
             progress?.Invoke("Checking exported WAV headers");
             foreach (var wave in Directory.GetFiles(FileSystemPath(Path.Combine(run, "Payloads")), "*.wav", SearchOption.AllDirectories))
             {
@@ -573,7 +615,18 @@ namespace Editor.bushtail
             Validate(itemRoot);
             AssetBundleDumpBuilder.WriteSettings(itemRoot, importedBundles, sortedDependencyRoots, sortedDependencyGuids, originalSources);
             progress?.Invoke("Exporting editable weapon FBX");
-            AssetBundleWeaponFbx.ExportFromDump(itemRoot, log);
+            AssetBundleWeaponFbx.ExportFromDump(itemRoot, log, assetStudioOutput);
+            if (buildAfterDump)
+            {
+                progress?.Invoke("Building and verifying the unedited weapon bundle");
+                try { log.Add("BUILD: " + AssetBundleDumpBuilder.Build(itemRoot)); }
+                catch (Exception ex)
+                {
+                    log.Add("BUILD FAILED: " + ex);
+                    await File.WriteAllLinesAsync(Path.Combine(run, "remap-report.txt"), log);
+                    throw;
+                }
+            }
             log.Add("Validated imported scripts and persistent object references.");
             await File.WriteAllLinesAsync(Path.Combine(run, "remap-report.txt"), log);
             return destinations[0];

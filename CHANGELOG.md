@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Resolve duplicate CAB providers from the selected source and dependency folders using referenced object IDs. No sibling SPT installations are searched.
+- Add optional AssetStudioModCLI recovery of original Animator FBX curves and audio, with a pinned one-command setup. Preserve the unedited build source and build/verify it automatically by default.
+- Add a guarded edited-FBX apply/build command that copies compatible mesh geometry and transform curves back into the original asset GUIDs, preserving controller references and animation events. Back up edited targets in the project's Library before applying.
 
 ## 1.1.0
 

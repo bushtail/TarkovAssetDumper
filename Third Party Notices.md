@@ -13,7 +13,7 @@ The distributed assembly name and implementation namespaces are prefixed for Bun
 
 ## Separately installed dependencies
 
-AssetRipper, AssetBundleBrowser impostor support, Scriptable Build Pipeline, Newtonsoft.Json, and the destination SDK are supplied separately. Their respective licenses and notices remain applicable to their own distributions. The dumper repository does not redistribute the SDK or original game assets.
+AssetRipper, AssetStudioModCLI, Unity FBX Exporter, AssetBundleBrowser impostor support, Scriptable Build Pipeline, Newtonsoft.Json, and the destination SDK are supplied separately. The optional setup script downloads AssetStudioModCLI from its release and source repositories, builds a local patch, and copies its upstream license into that local installation. Their respective licenses and notices remain applicable to their own distributions. The dumper repository does not redistribute the SDK or original game assets.
 
 ## Original dumper code
 

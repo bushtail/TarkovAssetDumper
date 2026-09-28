@@ -54,7 +54,7 @@ try {
         }
         Assert-Package (Test-Path -LiteralPath ($item.FullName + '.meta') -PathType Leaf) "Missing Unity metadata: $($item.FullName).meta"
     }
-    Assert-Package (@($items | Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.cs' }).Count -eq 10) 'Expected the ten dumper scripts.'
+    Assert-Package (@($items | Where-Object { -not $_.PSIsContainer -and $_.Extension -eq '.cs' }).Count -eq 12) 'Expected the twelve dumper scripts.'
 
     $metaFiles = @(Get-ChildItem -LiteralPath $editor -Recurse -Filter '*.meta' -File) + @(Get-ChildItem -LiteralPath $root -Filter '*.meta' -File)
     $guidOwners = @{}
@@ -107,7 +107,7 @@ try {
         Assert-Package ($file -notmatch '(?i)\.(?:prefab|unity|asset|mat|shader|cubemap|physicmaterial|fbx|obj|wav|ogg|bundle|unitypackage|resS|resource|csproj|sln|pdb|log)$') "Unexpected game/build payload in distribution: $file"
     }
 
-    Write-Output "PACKAGE_VALIDATION_PASSED: $($manifest.name) $($manifest.version); 10 editor scripts; $($guidOwners.Count) unique GUIDs; $($files.Count) distribution files."
+    Write-Output "PACKAGE_VALIDATION_PASSED: $($manifest.name) $($manifest.version); 12 editor scripts; $($guidOwners.Count) unique GUIDs; $($files.Count) distribution files."
     Write-Output 'Package metadata/content checks passed. Validate compilation and affected extraction/build behavior in a compatible SDK separately.'
     exit 0
 } catch {

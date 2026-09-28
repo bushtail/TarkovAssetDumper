@@ -16,6 +16,7 @@ The dumper extracts serialized assets with AssetRipper, matches scripts and shad
 | --- | --- |
 | A compatible, compiling Tarkov/WTT SDK | Provides the game component definitions and SDK assets used during export. |
 | AssetRipper `1.3.14` | Provides the extraction service. Install it separately and select its executable or configure `ASSETRIPPER_PATH`. |
+| AssetStudioModCLI `0.19.0` (recommended for weapons) | Extracts original audio and an Animator FBX with editable curves. Run `Tools~/Setup-AssetStudioModCLI.ps1` once; the window detects its local installation. |
 | Matching original game/dependency bundles | Provide referenced objects and original CAB/PathID identities. |
 | AssetBundleBrowser impostor package | Provides original-reference-aware building and canonical asset metadata. |
 | Scriptable Build Pipeline `2.1.5` | Declared in this package's manifest. |
@@ -40,13 +41,13 @@ That is the revision used by the inspected development SDK. Unity 2022.3 support
 
 For development or a downloaded repository, choose **Package Manager → + → Add package from disk**, then select this repository's root `package.json`.
 
-To install version `1.1.0`, use **Add package from git URL**:
+To install the current development build, use **Add package from git URL**:
 
 ```text
-https://github.com/bushtail/TarkovAssetDumper.git#v1.1.0
+https://github.com/bushtail/TarkovAssetDumper.git#main
 ```
 
-To follow development on the main branch, use `https://github.com/bushtail/TarkovAssetDumper.git#main` instead. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
+The latest fixed tag is `v1.1.0`; it predates the automated AssetStudio and edited-FBX workflow. Unity installs the package under `Packages`; it does not copy it into `Assets/Editor`.
 
 If the SDK currently has a manually copied dumper, remove those duplicate dumper scripts before installing the package. Keep the SDK's unrelated editor tools and dependencies. Two copies defining `Editor.bushtail.AssetBundleDumper` can conflict.
 
@@ -58,7 +59,7 @@ Merge these entries into the SDK's existing `Packages/manifest.json` → `depend
 
 ```json
 "com.bmpq.assetbundlebrowser-imposter": "https://github.com/bmpq/AssetBundles-Browser-Imposter.git#455ac661999cc199f28eb5b1296b313c1bcd10ee",
-"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#v1.1.0"
+"ca.bushtail.tarkov-asset-bundle-dumper": "https://github.com/bushtail/TarkovAssetDumper.git#main"
 ```
 
 Retain the project's other entries. This is a JSON fragment for that object, not a complete project manifest.
@@ -68,16 +69,17 @@ Retain the project's other entries. This is a JSON fragment for that object, not
 1. Let the SDK compile after installation.
 2. Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
 3. Add the source bundle files.
-4. Select the matching dependency folder, or leave it blank with a valid `SptRoot`.
+4. Select the matching dependency folder, or leave it blank with a valid `SptRoot`. Select the installed AssetStudioMod CLI executable for editable source animations and recovered audio.
 5. Select the AssetRipper executable.
 6. Enable **Assign one AssetBundle label to exported assets** to group editable source assets and retained dependencies.
 7. Extract and review the report. Successful exports appear under `Assets/BundleDumps`.
-8. Weapon containers also produce an editable FBX under `Assets/BundleDumperFBX/<dump name>`.
-9. Review/edit the assets, then build using the SDK's impostor-aware build process.
+8. Weapon containers also produce an editable FBX under `Assets/BundleDumperFBX/<dump name>`. With the patched CLI, it contains original animation curves.
+9. **Build and verify after extraction** builds the unedited rip under `AssetBundles/Dumps/<dump name>` by default. Review the report and test the weapon in game.
+10. After editing the FBX in Blender or Unity, select it in the Project window and choose **Assets → bushtail → Apply Edited Weapon FBX and Build**. Compatible mesh and transform animation edits are copied into the original assets, then the bundle is rebuilt.
 
-The checkbox assigns labels. It does not build a bundle, generate a mod manifest, or install a mod.
+The single-label checkbox groups build assets under one label. It does not generate a mod manifest or install a mod.
 
-The FBX is an editing copy outside the bundle source tree. Changes to it do not change the dumped prefab or bundle until you deliberately import the revised model back into your mod workflow.
+The FBX is an editing copy outside the bundle source tree. The apply command keeps original asset GUIDs, controller links, game components, and animation events. It skips meshes with incompatible bone order and clips whose transform paths do not fit the original skeleton; review its log before using the rebuilt bundle. It backs up affected source assets under `Library/BundleDumper/EditedFbxBackups`.
 
 ## Dependency rules
 
