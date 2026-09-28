@@ -374,15 +374,42 @@ namespace Editor.bushtail
                         throw new InvalidOperationException("Missing dependency '" + dependency + "' required by '" + result[i].Path + "'. Searched: " + string.Join(", ", roots) + (indexedBuildOutput && Directory.Exists(buildOutputFolder) ? ", " + buildOutputFolder : "") + ". Select the matching dependency build in Dependency search folder, or dump an original bundle with its original dependencies.");
                     }
 
+                    var selected = matches[0];
                     if (matches.Count != 1)
                     {
-                        throw new InvalidOperationException("Multiple bundles provide '" + dependency + "': " + string.Join(", ", matches.Select(b => b.Path)) + ". Use a search folder containing one copy.");
+                        // Multiple selected search roots can contain the same CAB.
+                        // The referenced PathIDs identify which copy actually belongs
+                        // to this bundle, even when the CAB name is unchanged.
+                        var referenced = ReferencedObjectIds(result[i].Path, dependency);
+                        if (referenced.Count == 0)
+                        {
+                            log.Add("Ignored unused external-table entry: " + dependency + " in " + result[i].Path);
+                            continue;
+                        }
+
+                        var compatible = matches.Where(bundle => ContainsObjects(bundle.Path, dependency, referenced)).ToArray();
+                        if (compatible.Length == 0)
+                        {
+                            throw new InvalidDataException("No selected dependency bundle provides all " + referenced.Count + " referenced objects in '" + dependency + "' for '" + result[i].Path + "'. Candidates: " + string.Join(", ", matches.Select(b => b.Path)) + ". Select a matching dependency folder.");
+                        }
+
+                        // When copies contain every required object, keep the same
+                        // installation as the referring bundle where possible.
+                        var ranked = compatible.Select(bundle => (bundle, distance: SharedPathDepth(result[i].Path, bundle.Path)))
+                            .OrderByDescending(pair => pair.distance).ToArray();
+                        if (ranked.Length > 1 && ranked[0].distance == ranked[1].distance)
+                        {
+                            throw new InvalidOperationException("Multiple equally close bundles provide the referenced objects in '" + dependency + "': " + string.Join(", ", ranked.Select(pair => pair.bundle.Path)) + ". Use a search folder containing one copy.");
+                        }
+
+                        selected = ranked[0].bundle;
+                        log.Add("SELECTED MATCHING DEPENDENCY: " + dependency + " -> " + selected.Path + " (" + referenced.Count + " referenced objects; " + matches.Count + " candidates)");
                     }
 
-                    if (!result.Any(b => b.Path.Equals(matches[0].Path, StringComparison.OrdinalIgnoreCase)))
+                    if (!result.Any(b => b.Path.Equals(selected.Path, StringComparison.OrdinalIgnoreCase)))
                     {
-                        result.Add(ReadCached(matches[0].Path));
-                        log.Add("DEPENDENCY: " + result[i].Name + " -> " + matches[0].Path);
+                        result.Add(ReadCached(selected.Path));
+                        log.Add("DEPENDENCY: " + result[i].Name + " -> " + selected.Path);
                     }
                 }
             }
@@ -452,6 +479,94 @@ namespace Editor.bushtail
                 cacheDirty = true;
                 cache[path] = (stat.Length, stat.LastWriteTimeUtc.Ticks, !namesOnly, info);
                 return info;
+            }
+        }
+
+        private static int SharedPathDepth(string left, string right)
+        {
+            var leftParts = Path.GetDirectoryName(Path.GetFullPath(left))!.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var rightParts = Path.GetDirectoryName(Path.GetFullPath(right))!.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var depth = 0;
+            while (depth < Math.Min(leftParts.Length, rightParts.Length)
+                   && leftParts[depth].Equals(rightParts[depth], StringComparison.OrdinalIgnoreCase))
+            {
+                depth++;
+            }
+
+            return depth;
+        }
+
+        private static HashSet<long> ReferencedObjectIds(string path, string dependency)
+        {
+            var ids = new HashSet<long>();
+            var manager = new AssetsManager();
+            bool HasPointers(AssetTypeTemplateField field) => field.Type.StartsWith("PPtr<", StringComparison.Ordinal) || field.Type.IndexOf("managedReference", StringComparison.OrdinalIgnoreCase) >= 0 || field.Children.Any(HasPointers);
+            void Collect(AssetTypeValueField field, HashSet<int> indices)
+            {
+                if (field.TypeName.StartsWith("PPtr<", StringComparison.Ordinal))
+                {
+                    if (indices.Contains(field["m_FileID"].AsInt) && field["m_PathID"].AsLong != 0)
+                    {
+                        ids.Add(field["m_PathID"].AsLong);
+                    }
+
+                    return;
+                }
+
+                foreach (var child in field.Children) { Collect(child, indices); }
+            }
+
+            try
+            {
+                var bundle = manager.LoadBundleFile(path);
+                for (var i = 0; i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count; i++)
+                {
+                    if (!IsSerializedFile(bundle.file, i)) { continue; }
+                    var file = manager.LoadAssetsFileFromBundle(bundle, i);
+                    var indices = new HashSet<int>(file.file.Metadata.Externals.Select((e, n) => (e, n))
+                        .Where(pair => Key(pair.e.PathName).Equals(dependency, StringComparison.OrdinalIgnoreCase))
+                        .Select(pair => pair.n + 1));
+                    if (indices.Count == 0) { continue; }
+
+                    foreach (var asset in file.file.Metadata.AssetInfos.Where(asset => asset.TypeId != 142))
+                    {
+                        var template = manager.GetTemplateBaseField(file, asset);
+                        if (template == null || template.Children.Count == 0)
+                        {
+                            throw new InvalidDataException("Cannot inspect references in " + path + " object " + asset.PathId);
+                        }
+
+                        if (HasPointers(template)) { Collect(manager.GetBaseField(file, asset), indices); }
+                    }
+                }
+
+                return ids;
+            }
+            finally
+            {
+                manager.UnloadAll(true);
+            }
+        }
+
+        private static bool ContainsObjects(string path, string fileName, HashSet<long> referenced)
+        {
+            var manager = new AssetsManager();
+            try
+            {
+                var bundle = manager.LoadBundleFile(path);
+                for (var i = 0; i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count; i++)
+                {
+                    if (!IsSerializedFile(bundle.file, i) || !Key(bundle.file.GetFileName(i)).Equals(fileName, StringComparison.OrdinalIgnoreCase)) { continue; }
+                    var file = manager.LoadAssetsFileFromBundle(bundle, i);
+                    var provided = new HashSet<long>(file.file.Metadata.AssetInfos.Select(asset => asset.PathId));
+                    if (referenced.IsSubsetOf(provided)) { return true; }
+                }
+
+                return false;
+            }
+            finally
+            {
+                manager.UnloadAll(true);
             }
         }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Resolve duplicate CAB providers from the selected source and dependency folders using referenced object IDs. No sibling SPT installations are searched.
+
 ## 1.1.0
 
 - Export an editable weapon FBX after a container dump, using the referenced weapon model prefab and original Animator Controller clips.

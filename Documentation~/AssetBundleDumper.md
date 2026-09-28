@@ -34,7 +34,7 @@ Select a dependency folder containing the matching original bundles, usually:
 <game installation>/EscapeFromTarkov_Data/StreamingAssets/Windows
 ```
 
-The selected source bundle's directory is also searched recursively. An explicit dependency folder overrides the environment-derived default. Avoid competing providers from different installations for the same CAB.
+The selected source bundle's directory is also searched recursively. An explicit dependency folder overrides the environment-derived default. If both selected locations contain the same CAB, the resolver chooses a copy containing the object IDs referenced by the source. If both copies qualify, it prefers the one nearest the referring bundle. It does not search other SPT installations automatically.
 
 With the dependency field blank, `SptRoot` can identify the installed sources. It points to the **runtime folder**, whose parent is the game installation:
 
@@ -283,7 +283,7 @@ The snippet belongs inside an asynchronous editor method with initialized paths/
 | No menu or package compile errors | Installed impostor/build dependencies, Editor assembly references, and duplicate manual dumper copies. |
 | Package download fails | Repository URL, existing tag, Git availability, and access to a private repository. |
 | No unique SDK script | Compatible compiled SDK definitions and ambiguous short names. |
-| Missing CAB or PathID | Matching source installation and exact dependency provider, including competing sibling bundles. |
+| Missing CAB or PathID | Select a dependency folder containing the referenced object IDs. A CAB with the same name from a different game version may have different contents. |
 | AssetRipper fails | Executable/version and the run's `AssetRipper.log`. |
 | Invalid SptRoot | Runtime folder and validated parent game layout. |
 | Dependencies remain in old folders | Select the older labeled root and run the sorting command; new exports sort retained dependency files automatically. |
