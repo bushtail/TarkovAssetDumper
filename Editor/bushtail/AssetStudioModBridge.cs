@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 namespace Editor.bushtail
 {
     // AssetStudioModCLI is an optional, separately installed extraction tool.
-    // Keep its converted files outside the original buildable dump until they
-    // have been checked and deliberately applied.
+    // Recover original audio into staging before importing the buildable dump.
     internal static class AssetStudioModBridge
     {
         internal static async Task<string> Export(string executable, IReadOnlyList<string> inputs, string run, List<string> log)
@@ -33,9 +32,8 @@ namespace Editor.bushtail
 
             var output = Path.Combine(run, "AssetStudio");
             Directory.CreateDirectory(output);
-            await Run(executable, inputRoot, "-m animator --fbx-animation all", Path.Combine(output, "Animator"), Path.Combine(run, "AssetStudio-Animator.log"));
             await Run(executable, inputRoot, "-m export -t audio -g type --audio-format wav", Path.Combine(output, "Audio"), Path.Combine(run, "AssetStudio-Audio.log"));
-            log.Add("AssetStudioModCLI exported editable FBX and original audio into " + output);
+            log.Add("AssetStudioModCLI exported original audio into " + output);
             return output;
         }
 

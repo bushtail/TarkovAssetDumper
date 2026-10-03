@@ -167,7 +167,7 @@ namespace Editor.bushtail
                 singleBundleLabels = EditorGUILayout.ToggleLeft(new GUIContent("Assign one AssetBundle label to exported assets",
                     "Group the selected assets and editable dependencies. Shared cubemaps, shaders and physics materials retain their original game bundle labels."), singleBundleLabels);
                 buildAfterDump = EditorGUILayout.ToggleLeft(new GUIContent("Build and verify after extraction",
-                    "Build the untouched ripped source with original references and check serialized pointers. The editable FBX stays outside the bundle."), buildAfterDump);
+                    "Build the untouched ripped source with original references and check serialized pointers."), buildAfterDump);
                 using (new EditorGUI.DisabledScope(singleBundleLabels))
                 {
                     assignPrefabBundleNames = EditorGUILayout.ToggleLeft("Split into per-prefab bundles", assignPrefabBundleNames);
@@ -486,7 +486,7 @@ namespace Editor.bushtail
                 EditorPrefs.SetString("bushtail.AssetStudioModCLIPath", assetStudioExecutable);
                 try
                 {
-                    progress?.Invoke("Exporting source animations and audio with AssetStudioModCLI");
+                    progress?.Invoke("Recovering source audio with AssetStudioModCLI");
                     assetStudioOutput = await AssetStudioModBridge.Export(assetStudioExecutable, inputs, run, log);
                 }
                 catch (Exception ex)
@@ -646,8 +646,6 @@ namespace Editor.bushtail
             Validate(itemRoot);
             AssetBundleDumpBuilder.WriteSettings(itemRoot, importedBundles, sortedDependencyRoots, sortedDependencyGuids, originalSources,
                 newBundleName == null ? null : newBundleName + ".bundle");
-            progress?.Invoke("Exporting editable weapon FBX");
-            AssetBundleWeaponFbx.ExportFromDump(itemRoot, log, assetStudioOutput);
             if (buildAfterDump)
             {
                 progress?.Invoke("Building and verifying the unedited weapon bundle");

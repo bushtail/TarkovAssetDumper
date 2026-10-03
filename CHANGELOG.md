@@ -2,19 +2,17 @@
 
 ## Unreleased
 
+- Remove model export and edited-model apply commands, the associated package dependency, and the Animator export pass. Keep optional source-audio recovery.
 - Prompt for a distinct new weapon/item name before extraction, use it for the new dump folder and bundle key, and open a reload-safe Unity guide for remaining manual work.
 - Restore missing weapon SoundBank blend options and shared left-hand/gesture controller motions from SDK assets, with backups and review logs for ambiguous matches.
 - Include the referenced original SDK animation and blend-option bundles in build verification after those repairs.
 - Guide model/animation editing, prefab and audio review, mod registration, and in-game checks; expose the built bundle key and CAB IDs.
 - Resolve duplicate CAB providers from the selected source and dependency folders using referenced object IDs. No sibling SPT installations are searched.
-- Add optional AssetStudioModCLI recovery of original Animator FBX curves and audio, with a pinned one-command setup. Preserve the unedited build source and build/verify it automatically by default.
-- Add a guarded edited-FBX apply/build command that copies compatible mesh geometry and transform curves back into the original asset GUIDs, preserving controller references and animation events. Back up edited targets in the project's Library before applying.
+- Add optional AssetStudioModCLI source-audio recovery and automatic build verification.
 
 ## 1.1.0
 
-- Export an editable weapon FBX after a container dump, using the referenced weapon model prefab and original Animator Controller clips.
-- Place FBX editing copies under `Assets/BundleDumperFBX/<dump name>` outside the labeled bundle source tree.
-- Add Unity FBX Exporter 4.2.1 as a registry dependency and a context menu command to re-export an existing dump.
+- Add initial experimental weapon model export support (removed from the current development build).
 
 ## 1.0.1
 

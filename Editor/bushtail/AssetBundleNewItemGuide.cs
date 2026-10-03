@@ -22,10 +22,9 @@ namespace Editor.bushtail
         [SerializeField] private List<string> roots = new();
         [SerializeField] private int selected;
         [SerializeField] private int step;
-        [SerializeField] private int selectedFbx;
         private Vector2 scroll;
         private string status = "";
-        private string[] fbxPaths = Array.Empty<string>();
+        private bool isWeapon;
         private string prefabPath = "";
         private string bundlePath = "";
         private string bundleKey = "";
@@ -150,20 +149,14 @@ namespace Editor.bushtail
             contextRoot = root;
             status = "";
             cabs = Array.Empty<string>();
-            selectedFbx = 0;
             var project = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var fbxFolder = AssetBundleWeaponFbx.OutputRoot + "/" + Path.GetFileName(root);
-            var physicalFolder = Path.Combine(project, fbxFolder.Replace('/', Path.DirectorySeparatorChar));
-            fbxPaths = Directory.Exists(physicalFolder)
-                ? Directory.GetFiles(physicalFolder, "*.fbx", SearchOption.TopDirectoryOnly)
-                    .Select(path => fbxFolder + "/" + Path.GetFileName(path)).OrderBy(path => path, StringComparer.Ordinal).ToArray()
-                : Array.Empty<string>();
             var prefabs = AssetDatabase.FindAssets("t:Prefab", new[] { root }).Select(AssetDatabase.GUIDToAssetPath).ToArray();
             prefabPath = prefabs.FirstOrDefault(path =>
             {
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                return prefab && AssetBundleWeaponFbx.TryGetWeaponReferences(prefab, out _, out _);
+                return prefab && HasWeaponReference(prefab);
             }) ?? prefabs.FirstOrDefault() ?? "";
+            isWeapon = !string.IsNullOrEmpty(prefabPath) && HasWeaponReference(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
             try
             {
                 bundleKey = AssetBundleDumpBuilder.ReadSettings(root).BundleName.ToLowerInvariant();
@@ -180,40 +173,16 @@ namespace Editor.bushtail
 
         private void DrawEditing(string root)
         {
-            if (fbxPaths.Length == 0)
-            {
-                EditorGUILayout.HelpBox("Edit the dumped model or prefab in Unity. Check its pivot, materials, collider, scale, and attachment points. The source bundle and references were already extracted and remapped.", MessageType.Info);
-                SelectPrefabButton();
-                return;
-            }
-            EditorGUILayout.HelpBox("Open the editable FBX in Blender, make your model or animation changes, then export over the same FBX path. Keep the renderer hierarchy, bone names and order, and clip names so the changes can map to the original prefab and controller. Disable Add Leaf Bones when exporting.", MessageType.Info);
-            selectedFbx = EditorGUILayout.Popup("Editable FBX", Mathf.Clamp(selectedFbx, 0, fbxPaths.Length - 1),
-                fbxPaths.Select(Path.GetFileName).ToArray());
-            var fbx = fbxPaths[selectedFbx];
-            EditorGUILayout.LabelField("FBX path", fbx, EditorStyles.wordWrappedLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Select FBX in Unity")) { SelectAsset(fbx); }
-                if (GUILayout.Button("Reveal FBX file")) { EditorUtility.RevealInFinder(Path.GetFullPath(fbx)); }
-            }
-            if (GUILayout.Button("Apply edited FBX and rebuild"))
-            {
-                try
-                {
-                    var log = new List<string>();
-                    bundlePath = AssetBundleWeaponFbxApply.Apply(fbx, log);
-                    cabs = Array.Empty<string>();
-                    status = "Applied compatible changes and verified the build. Review skipped parts in the Console.";
-                    Debug.Log(string.Join("\n", log) + "\nBUILD: " + bundlePath);
-                }
-                catch (Exception exception) { Report(exception); }
-            }
-            EditorGUILayout.HelpBox("The apply command copies compatible meshes and transform curves into the original assets. Inspect skipped paths and the weapon pose afterward; spatial correctness still needs a visual check.", MessageType.None);
+            EditorGUILayout.HelpBox(isWeapon
+                ? "Edit the dumped model, mesh, materials, and animation assets in Unity. Keep the weapon hierarchy, bone names, clip names, and controller references compatible with the original container. Inspect the pivot, attachment points, and firing and reload poses after edits."
+                : "Edit the dumped model or prefab in Unity. Check its pivot, materials, collider, scale, and attachment points. The source bundle and references were already extracted and remapped.", MessageType.Info);
+            SelectPrefabButton();
+            if (GUILayout.Button("Rebuild after Unity edits")) { Build(root); }
         }
 
         private void DrawInspection(string root)
         {
-            if (fbxPaths.Length > 0)
+            if (isWeapon)
             {
                 EditorGUILayout.HelpBox("Inspect the weapon container's Weapon Object and original Animator Controller. Check TransformLinks, muzzle/attachment points, left-hand actions, Avatar Masks and IK, animation events, SoundBanks, and the Standart BlendOptions reference. Compare firing, reload, and empty-magazine poses in Unity.", MessageType.Info);
             }
@@ -287,7 +256,7 @@ namespace Editor.bushtail
 
         private void DrawGameTest()
         {
-            if (fbxPaths.Length > 0)
+            if (isWeapon)
             {
                 EditorGUILayout.HelpBox("Install the mod and test equip, aiming, fire, reload, empty magazine, malfunction, attachments, muzzle effects, and suppressed/unsuppressed audio. Check slide and recoil timing and both server and client logs. Rebuild after any Unity edit.", MessageType.Info);
             }
@@ -307,6 +276,18 @@ namespace Editor.bushtail
             {
                 if (GUILayout.Button("Select original prefab in Unity")) { SelectAsset(prefabPath); }
             }
+        }
+
+        private static bool HasWeaponReference(GameObject prefab)
+        {
+            if (!prefab) { return false; }
+            foreach (var component in prefab.GetComponents<MonoBehaviour>())
+            {
+                if (!component) { continue; }
+                var reference = new SerializedObject(component).FindProperty("_weaponObject");
+                if (reference?.objectReferenceValue is GameObject) { return true; }
+            }
+            return false;
         }
 
         private void Build(string root)
