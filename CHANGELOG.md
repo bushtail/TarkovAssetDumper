@@ -10,6 +10,10 @@
 - Resolve duplicate CAB providers from the selected source and dependency folders using referenced object IDs. No sibling SPT installations are searched.
 - Add optional AssetStudioModCLI source-audio recovery and automatic build verification.
 
+## 1.1.1
+
+- Attempt to fix #3 and #2
+
 ## 1.1.0
 
 - Add initial experimental weapon model export support (removed from the current development build).
