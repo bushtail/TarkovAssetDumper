@@ -57,6 +57,8 @@ GameInstallation/
 
 Process, user, and machine scopes are checked in that order. A configured but invalid installation reports the missing expected entries. When the variable is unset, the resolver can discover a `StreamingAssets/Windows` ancestor above an original input bundle. SDK `AssetBundles` output can provide additional missing rebuilt CABs.
 
+The **Dependency search folder** field also accepts the SPT runtime folder. When selected, the dumper validates it and searches the sibling game bundle directory. If `SptRoot` is unset in all three scopes, extraction saves the runtime folder's absolute path as the user-level variable and makes it available immediately to the current Unity process. An existing `SptRoot` is not overwritten. Selecting a normal bundle folder does not set `SptRoot`.
+
 ## Window options
 
 Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
@@ -65,7 +67,7 @@ Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
 | --- | --- |
 | Add Files / drag area | Add one or more bundle inputs. Windows supports Ctrl/Shift selection. Duplicate normalized paths are ignored. |
 | Remove / Clear | Remove a queue entry or clear the input queue. |
-| Dependency search folder | Locate matching source dependencies. Blank uses environment/ancestor discovery. |
+| Dependency search folder | Select a bundle folder or an SPT runtime folder. A valid runtime folder is saved as `SptRoot` when unset; blank uses environment/ancestor discovery. |
 | AssetRipper executable | Locate the separately installed extractor. |
 | AssetStudioMod CLI | Optional external executable for recovered source audio. The setup script installs the release locally. |
 | Assign one AssetBundle label to exported assets | Group eligible source assets and editable retained dependencies under the source bundle's name. |

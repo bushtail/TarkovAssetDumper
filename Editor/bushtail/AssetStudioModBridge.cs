@@ -56,14 +56,18 @@ namespace Editor.bushtail
             var completed = await Task.Run(() => process.WaitForExit(600000));
             if (!completed)
             {
-                process.Kill();
-                throw new TimeoutException("AssetStudioModCLI exceeded ten minutes. See " + logPath);
+                if (!process.HasExited) { process.Kill(); }
+                await Task.Run(process.WaitForExit);
             }
 
             var standardOutput = await stdout;
             var standardError = await stderr;
             var report = standardOutput + Environment.NewLine + standardError;
             File.WriteAllText(logPath, report);
+            if (!completed)
+            {
+                throw new TimeoutException("AssetStudioModCLI exceeded ten minutes. See " + logPath);
+            }
             if (process.ExitCode != 0)
             {
                 throw new InvalidDataException("AssetStudioModCLI failed (exit " + process.ExitCode + "). See " + logPath);

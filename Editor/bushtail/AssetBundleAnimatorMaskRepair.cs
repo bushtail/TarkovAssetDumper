@@ -1,4 +1,5 @@
 #nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +16,7 @@ namespace Editor.bushtail
     {
         public static int Restore(string root, IEnumerable<string> sources, List<string>? log = null)
         {
-            var controllers = AssetDatabase.FindAssets("t:AnimatorController", new[] { root })
+            var controllers = AssetDatabase.FindAssets("t:AnimatorController", [root])
                 .Select(AssetDatabase.GUIDToAssetPath)
                 .Select(AssetDatabase.LoadAssetAtPath<AnimatorController>).Where(c => c).ToArray();
             if (controllers.Length == 0)
@@ -130,8 +131,7 @@ namespace Editor.bushtail
                     }
 
                     var mask = new AvatarMask { name = controller.name + "_" + layers[index].name };
-                    // These generic rigs use the transform mask. Preserve enabled
-                    // humanoid body parts as well; do not disable IK/body channels.
+
                     for (var part = 0; part < (int)AvatarMaskBodyPart.LastBodyPart; part++)
                     {
                         mask.SetHumanoidBodyPartActive((AvatarMaskBodyPart)part, true);

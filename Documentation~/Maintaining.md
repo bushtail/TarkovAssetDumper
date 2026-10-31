@@ -8,6 +8,8 @@ Use the root package identifier `ca.bushtail.tarkov-asset-bundle-dumper` consist
 
 ## Before a commit
 
+For external C# editor support, run `Tools~/Setup-CodeEditor.ps1 -SdkRoot 'F:\path\to\SDK'` once after the SDK has compiled, then open this repository folder in your editor. `dotnet build TarkovAssetDumper.CodeEditor.csproj` checks the package code without launching Unity. The generated project is ignored by Git and should be regenerated when Unity or the SDK moves.
+
 1. Run `Tools~/Validate-Package.ps1` from PowerShell.
    Pass `-SdkRoot 'F:\path\to\SDK'` when preparing an SDK install to check package GUIDs against its `Assets` metadata as well.
 2. Check SDK compilation after changes to code, the DLL, dependencies, or the assembly definition.

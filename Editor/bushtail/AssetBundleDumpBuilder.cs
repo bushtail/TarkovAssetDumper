@@ -96,6 +96,8 @@ namespace Editor.bushtail
             }
 
             // Older cached dumps predate the explicit dependency-root list.
+            settings.DependencyRoots ??= Array.Empty<string>();
+            settings.DependencyAssetGuids ??= Array.Empty<string>();
             if (settings.DependencyRoots.Length == 0)
             {
                 settings.DependencyRoots = AssetDatabase.GetSubFolders(root).Where(p => 
@@ -366,7 +368,11 @@ namespace Editor.bushtail
             {
                 foreach (var imp in impostors.Keys)
                 {
-                    var temporary = Path.GetFullPath(results.BundleInfos[imp].FileName);
+                    if (!results.BundleInfos.TryGetValue(imp, out var imposterInfo))
+                    {
+                        continue;
+                    }
+                    var temporary = Path.GetFullPath(imposterInfo.FileName);
                     if (!temporary.StartsWith(output + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new InvalidDataException("Temporary impostor output escaped build directory.");
@@ -420,8 +426,14 @@ namespace Editor.bushtail
                         }
 
                         return; }
+                    if (index < 0 || index > file.file.Metadata.Externals.Count)
+                    {
+                        throw new InvalidDataException("Built bundle has an invalid external file index: " + index);
+                    }
                     var cab = Key(file.file.Metadata.Externals[index - 1].PathName);
-                    if (cab.StartsWith("unity", StringComparison.OrdinalIgnoreCase))
+                    if (cab.Equals("unity_builtin_extra", StringComparison.OrdinalIgnoreCase)
+                        || cab.Equals("unity_builtin_resources", StringComparison.OrdinalIgnoreCase)
+                        || cab.Equals("unity default resources", StringComparison.OrdinalIgnoreCase))
                     {
                         return;
                     }

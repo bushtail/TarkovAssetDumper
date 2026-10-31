@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -149,7 +150,7 @@ namespace Editor.bushtail
                 {
                     using (new EditorGUILayout.HorizontalScope())
                     {
-                        dependencyFolder = EditorGUILayout.TextField(new GUIContent("Dependency search folder", "Leave blank to use the installation above SptRoot. The selected bundles' folders are also searched."), dependencyFolder);
+                        dependencyFolder = EditorGUILayout.TextField(new GUIContent("Dependency search folder", "Select a bundle folder or an SPT runtime folder. A valid runtime folder is saved as SptRoot if unset. Leave blank to use an existing SptRoot."), dependencyFolder);
                         if (GUILayout.Button("Browse", GUILayout.Width(65)))
                         {
                             var selected = EditorUtility.OpenFolderPanel("Dependency search folder", PickerDirectory(dependencyFolder), "");
@@ -850,7 +851,8 @@ namespace Editor.bushtail
                 client.BaseAddress = new Uri("http://127.0.0.1:" + port);
                 client.Timeout = TimeSpan.FromHours(1);
                 var ready = false;
-                for (var attempt = 0; attempt < 120; attempt++)
+                var startup = System.Diagnostics.Stopwatch.StartNew();
+                while (startup.Elapsed < TimeSpan.FromSeconds(30))
                 {
                     if (process.HasExited)
                     {
@@ -859,10 +861,17 @@ namespace Editor.bushtail
 
                     try
                     {
-                        using var response = await client.GetAsync("/");
+                        // The export requests may take an hour, but a hung startup
+                        // probe must not turn the 30-second readiness check into one.
+                        using var probeTimeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(
+                            Math.Min(250, Math.Max(1, (TimeSpan.FromSeconds(30) - startup.Elapsed).TotalMilliseconds))));
+                        using var response = await client.GetAsync("/", probeTimeout.Token);
                         ready = response.IsSuccessStatusCode;
                     }
                     catch (HttpRequestException)
+                    {
+                    }
+                    catch (OperationCanceledException)
                     {
                     }
 
@@ -871,7 +880,11 @@ namespace Editor.bushtail
                         break;
                     }
 
-                    await Task.Delay(250);
+                    var remaining = TimeSpan.FromSeconds(30) - startup.Elapsed;
+                    if (remaining > TimeSpan.Zero)
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(250, remaining.TotalMilliseconds)));
+                    }
                 }
 
                 if (!ready)

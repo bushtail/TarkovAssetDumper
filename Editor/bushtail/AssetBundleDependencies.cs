@@ -27,7 +27,7 @@ namespace Editor.bushtail
         }
 
         private static bool Builtin(string value) => value.Equals("unity_builtin_extra", StringComparison.OrdinalIgnoreCase) || value.Equals("unity default resources", StringComparison.OrdinalIgnoreCase) || value.Equals("unity_builtin_resources", StringComparison.OrdinalIgnoreCase);
-        public static string EnvironmentInstallRoot()
+        public static string ConfiguredSptRoot()
         {
             var runtime = Environment.GetEnvironmentVariable("SptRoot");
             if (string.IsNullOrWhiteSpace(runtime))
@@ -40,6 +40,26 @@ namespace Editor.bushtail
                 runtime = Environment.GetEnvironmentVariable("SptRoot", EnvironmentVariableTarget.Machine);
             }
 
+            return runtime ?? "";
+        }
+
+        public static bool SaveSptRootIfUnset(string? runtime)
+        {
+            if (string.IsNullOrWhiteSpace(runtime) || !string.IsNullOrWhiteSpace(ConfiguredSptRoot()))
+            {
+                return false;
+            }
+
+            ValidateSptRoot(runtime!);
+            var path = Path.GetFullPath(Environment.ExpandEnvironmentVariables(runtime!.Trim().Trim('"')));
+            Environment.SetEnvironmentVariable("SptRoot", path, EnvironmentVariableTarget.User);
+            Environment.SetEnvironmentVariable("SptRoot", path, EnvironmentVariableTarget.Process);
+            return true;
+        }
+
+        public static string EnvironmentInstallRoot()
+        {
+            var runtime = ConfiguredSptRoot();
             return string.IsNullOrWhiteSpace(runtime) ? "" : ValidateSptRoot(runtime);
         }
 
@@ -141,6 +161,23 @@ namespace Editor.bushtail
                 }
             }
 
+            if (includeDependencies && !string.IsNullOrWhiteSpace(extraFolder))
+            {
+                extraFolder = Path.GetFullPath(Environment.ExpandEnvironmentVariables(extraFolder!.Trim().Trim('"')));
+                if (File.Exists(Path.Combine(extraFolder, "SPT.Server.exe"))
+                    || File.Exists(Path.Combine(extraFolder, "SPT.Launcher.exe"))
+                    || Directory.Exists(Path.Combine(extraFolder, "SPT_Data")))
+                {
+                    var install = ValidateSptRoot(extraFolder);
+                    if (SaveSptRootIfUnset(extraFolder))
+                    {
+                        log.Add("Saved SptRoot for this user and the current Unity session: " + ConfiguredSptRoot());
+                    }
+                    extraFolder = Path.Combine(install, "EscapeFromTarkov_Data", "StreamingAssets", "Windows");
+                    log.Add("SPT dependencies from selected runtime folder: " + extraFolder);
+                }
+            }
+
             if (includeDependencies && !string.IsNullOrWhiteSpace(extraFolder) && !Directory.Exists(extraFolder))
             {
                 throw new DirectoryNotFoundException("Dependency folder does not exist: " + extraFolder);
@@ -156,6 +193,7 @@ namespace Editor.bushtail
                     var version = reader.ReadInt32();
                     if (version != 1 && version != 2)
                     {
+                        throw new InvalidDataException("Unsupported bundle cache version: " + version);
                     }
 
                     cacheDirty = version != 2;
@@ -211,14 +249,12 @@ namespace Editor.bushtail
 
             if (string.IsNullOrWhiteSpace(extraFolder))
             {
-                // EFT keeps shared dependencies above the individual weapon folder.
                 for (var parent = new DirectoryInfo(Path.GetDirectoryName(input)!); parent != null; parent = parent.Parent)
                 {
-                    if (parent.Name.Equals("Windows", StringComparison.OrdinalIgnoreCase) && parent.Parent?.Name.Equals("StreamingAssets", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        extraFolder = parent.FullName;
-                        break;
-                    }
+                    if (!parent.Name.Equals("Windows", StringComparison.OrdinalIgnoreCase) || parent.Parent?.Name.Equals("StreamingAssets", StringComparison.OrdinalIgnoreCase) != true) { continue; }
+                    
+                    extraFolder = parent.FullName;
+                    break;
                 }
             }
 
@@ -227,41 +263,7 @@ namespace Editor.bushtail
                 Path.GetDirectoryName(input)!,
                 extraFolder
             }.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => Path.GetFullPath(p!)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            // A parent traversal already includes its child folders.
             var roots = requestedRoots.Where(root => !requestedRoots.Any(other => !root.Equals(other, StringComparison.OrdinalIgnoreCase) && root.StartsWith(other.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))).ToArray();
-            BundleInfo? ReadCandidate(FileInfo stat)
-            {
-                examined++;
-                if (timer.ElapsedMilliseconds - lastProgress >= 250)
-                {
-                    progress?.Report("Checking dependencies: " + examined + " files (" + hits + " cached)");
-                    lastProgress = timer.ElapsedMilliseconds;
-                }
-
-                var path = stat.FullName;
-                // DirectoryInfo enumeration supplies the size/timestamp without a
-                // second stat. Unchanged files need no signature or bundle reads.
-                if (cache.TryGetValue(path, out var entry) && entry.size == stat.Length && entry.ticks == stat.LastWriteTimeUtc.Ticks)
-                {
-                    hits++;
-                    return entry.info.Files.Count == 0 ? null : entry.info;
-                }
-
-                signatureReads++;
-                var info = IsBundle(path) ? Read(path, true) : new BundleInfo
-                {
-                    Path = path
-                };
-                if (info.Files.Count != 0)
-                {
-                    bundleReads++;
-                }
-
-                cache[path] = (stat.Length, stat.LastWriteTimeUtc.Ticks, false, info);
-                cacheDirty = true;
-                // Version 2 caches non-bundles too, but changed files are always probed again.
-                return info.Files.Count == 0 ? null : info;
-            }
 
             var available = new Dictionary<string, List<BundleInfo>>(StringComparer.OrdinalIgnoreCase);
             void Index(BundleInfo bundle)
@@ -465,6 +467,40 @@ namespace Editor.bushtail
             log.Add("DEPENDENCY TIMING: " + timer.ElapsedMilliseconds + " ms; " + examined + " files checked; " + hits + " cache hits; " + signatureReads + " signature reads; " + bundleReads + " bundle metadata reads.");
             log.Add("Found " + result.Count + " candidate bundles before object-reference filtering.");
             return result;
+
+            BundleInfo? ReadCandidate(FileInfo stat)
+            {
+                examined++;
+                if (timer.ElapsedMilliseconds - lastProgress >= 250)
+                {
+                    progress?.Report("Checking dependencies: " + examined + " files (" + hits + " cached)");
+                    lastProgress = timer.ElapsedMilliseconds;
+                }
+
+                var path = stat.FullName;
+                
+                if (cache.TryGetValue(path, out var entry) && entry.size == stat.Length && entry.ticks == stat.LastWriteTimeUtc.Ticks)
+                {
+                    hits++;
+                    return entry.info.Files.Count == 0 ? null : entry.info;
+                }
+
+                signatureReads++;
+                var info = IsBundle(path) ? Read(path, true) : new BundleInfo
+                {
+                    Path = path
+                };
+                if (info.Files.Count != 0)
+                {
+                    bundleReads++;
+                }
+
+                cache[path] = (stat.Length, stat.LastWriteTimeUtc.Ticks, false, info);
+                cacheDirty = true;
+
+                return info.Files.Count == 0 ? null : info;
+            }
+
             BundleInfo ReadCached(string path, bool namesOnly = false)
             {
                 var stat = new FileInfo(path);

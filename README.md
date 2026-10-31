@@ -68,7 +68,7 @@ Retain the project's other entries. This is a JSON fragment for that object, not
 1. Let the SDK compile after installation.
 2. Open **Custom Windows → bushtail → Dump AssetBundle to SDK Format**.
 3. Add the source bundle files.
-4. Select the matching dependency folder, or leave it blank with a valid `SptRoot`. Optionally select AssetStudioMod CLI to recover source audio.
+4. In **Dependency search folder**, select matching original bundles or the SPT runtime folder. A valid runtime folder is saved as user-level `SptRoot` when the variable was unset. Leave the field blank to use an existing `SptRoot`. Optionally select AssetStudioMod CLI to recover source audio.
 5. Select the AssetRipper executable.
 6. Enable **Assign one AssetBundle label to exported assets** to group editable source assets and retained dependencies.
 7. Click **Extract**. The name popup asks for a distinct new item name, then exports to `Assets/BundleDumps/<new name>`. Choose **Dump original names** only when you want a normal copy of the source. Review the report.
@@ -90,6 +90,17 @@ The weapon workflow fills missing SoundBank `BlendOptions` from the SDK's `Stand
 - Empty and metadata-only leftover folders are pruned; populated folders and their metadata are preserved.
 
 ## Documentation and maintenance
+
+### Edit C# outside Unity
+
+To get C# navigation, completion, and build errors in an external editor, generate a local project using a compatible SDK that has already compiled its package dependencies:
+
+```powershell
+& './Tools~/Setup-CodeEditor.ps1' -SdkRoot 'F:\path\to\WTT-SDK'
+dotnet build './TarkovAssetDumper.CodeEditor.csproj'
+```
+
+Open this repository folder in your C# editor. The generated `.csproj` uses the SDK's compiled build/browser assemblies and the matching installed Unity editor assemblies; it does not need Unity running while you edit. The project file and build output are ignored by Git. Rerun setup if the SDK or Unity installation moves. This checks compilation only; extraction and building bundles still require Unity.
 
 - [Usage, options, builds, and troubleshooting](Documentation~/AssetBundleDumper.md)
 - [Development and release workflow](Documentation~/Maintaining.md)

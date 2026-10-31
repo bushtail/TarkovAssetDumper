@@ -274,7 +274,7 @@ namespace Editor.bushtail
             {
                 AssetDatabase.SaveAssets();
                 var pattern = new System.Text.RegularExpressions.Regex(@"\{fileID: -?\d+, guid: ([0-9a-fA-F]{32}), type: (\d+)\}");
-                var itemRoot = Path.GetDirectoryName(destinations[0])!;
+                var itemRoot = destinations[0];
                 foreach (var file in Directory.GetFiles(AssetBundleDumper.FileSystemPath(itemRoot), "*", SearchOption.AllDirectories))
                 {
                     using var reader = new StreamReader(file);

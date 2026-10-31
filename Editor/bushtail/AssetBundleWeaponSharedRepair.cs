@@ -166,7 +166,7 @@ namespace Editor.bushtail
                     {
                         var sdk = Match(state.name);
                         if (!sdk) { log.Add("LEFT HAND REVIEW: no unique SDK clip for state " + state.name + " in " + path); }
-                        else if (state.motion != sdk) { edits.Add(new MotionEdit { State = state, Motion = sdk }); }
+                        else if (state.motion != sdk) { edits.Add(new MotionEdit { State = state, Motion = sdk! }); }
                     }
                     if (state.motion is not BlendTree tree || tree.blendParameter != "GestureIndex") { continue; }
                     var children = tree.children;
